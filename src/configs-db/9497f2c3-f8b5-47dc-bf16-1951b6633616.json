@@ -1,0 +1,12 @@
+{
+  "upstreamUrl": "http://localhost:3004/mcp",
+  "yourWallet": "0x23330fCd94b07943804367C677D6a11D26e4b728",
+  "tools": [
+    {
+      "name": "get-snack",
+      "description": "Get a random snack from the snack list",
+      "price": 0.0001,
+      "enabled": true
+    }
+  ]
+}

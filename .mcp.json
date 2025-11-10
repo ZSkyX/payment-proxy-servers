@@ -1,0 +1,17 @@
+{
+    "mcpServers": {
+        "snack-server": {
+            "command": "npx",
+            "args": [
+            "tsx",
+            "/Users/zskyx/Documents/fluxA/code/x402/test-x402-mcp/src/client/stdio-server.ts",
+            "--url",
+            "http://localhost:3003/mcp/04b3315b-51e4-42ce-8134-bac2cd46b900"
+            ],
+            "env": {
+                "EVM_PRIVATE_KEY": "PRIVATE_KEY_REMOVED",
+                "EVM_NETWORK": "base-sepolia"
+            }
+        }
+    }
+}

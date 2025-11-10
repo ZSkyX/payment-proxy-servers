@@ -41,7 +41,7 @@ async function main() {
   console.error('EVM Private Key:', process.env.EVM_PRIVATE_KEY ? 'Set' : 'Not set');
 
   // Ensure private key has 0x prefix
-  const evmPrivateKey = "PRIVATE_KEY_REMOVED";// process.env.EVM_PRIVATE_KEY!;
+  const evmPrivateKey = process.env.EVM_PRIVATE_KEY!;
   const formattedEvmKey = evmPrivateKey.startsWith('0x') ? evmPrivateKey : `0x${evmPrivateKey}`;
 
   // Create signer for EVM network

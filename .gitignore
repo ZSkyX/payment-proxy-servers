@@ -21,6 +21,13 @@ lerna-debug.log*
 # Environment variables
 .env
 .env.*.local
+.mcp.json
+
+# Private keys and secrets
+*.key
+*.pem
+*private-key*
+*privatekey*
 
 # IDEs and editors
 .vscode/

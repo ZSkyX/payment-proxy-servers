@@ -4,6 +4,7 @@
  */
 
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import axios from 'axios';
 
 interface PaymentOption {
   scheme: string;
@@ -86,36 +87,47 @@ export function createPaymentClient(
       // Call FluxA Wallet Service to create payment
       let paymentResponse;
       try {
-        const response = await fetch(`${fluxaWalletServiceUrl}/api/payment/x402V1Payment`, {
-          method: 'POST',
+        const requestData = {
+          scheme: selectedOption.scheme,
+          network: selectedOption.network,
+          amount: selectedOption.maxAmountRequired,
+          currency: 'USDC',
+          assetAddress: selectedOption.asset,
+          payTo: selectedOption.payTo,
+          host: host,
+          resource: selectedOption.resource,
+          description: selectedOption.description,
+          tokenName: selectedOption.extra?.name || 'USDC',
+          tokenVersion: selectedOption.extra?.version || '2',
+          validityWindowSeconds: selectedOption.maxTimeoutSeconds || 60
+        };
+
+        // Sanitize URL - ensure no double slashes
+        const baseUrl = fluxaWalletServiceUrl.endsWith('/')
+          ? fluxaWalletServiceUrl.slice(0, -1)
+          : fluxaWalletServiceUrl;
+        const paymentUrl = `${baseUrl}/api/payment/x402V1Payment`;
+
+        console.error('[CUSTOM-PAYMENT-CLIENT] Request URL:', paymentUrl);
+        console.error('[CUSTOM-PAYMENT-CLIENT] JWT length:', agentJwt.length);
+        console.error('[CUSTOM-PAYMENT-CLIENT] JWT (first 50 chars):', agentJwt.substring(0, 50));
+        console.error('[CUSTOM-PAYMENT-CLIENT] Request data:', JSON.stringify(requestData, null, 2));
+
+        const response = await axios.post(paymentUrl, requestData, {
           headers: {
             'Authorization': `Bearer ${agentJwt}`,
             'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            scheme: selectedOption.scheme,
-            network: selectedOption.network,
-            amount: selectedOption.maxAmountRequired,
-            currency: 'USDC',
-            assetAddress: selectedOption.asset,
-            payTo: selectedOption.payTo,
-            host: host,
-            resource: selectedOption.resource,
-            description: selectedOption.description,
-            tokenName: selectedOption.extra?.name || 'USDC',
-            tokenVersion: selectedOption.extra?.version || '2',
-            validityWindowSeconds: selectedOption.maxTimeoutSeconds || 60
-          })
+          }
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(`FluxA Wallet Service error: ${errorData.message || response.statusText}`);
-        }
-
-        paymentResponse = await response.json();
+        paymentResponse = response.data;
+        console.error('[CUSTOM-PAYMENT-CLIENT] Payment response status:', paymentResponse.status);
       } catch (error: any) {
         console.error('[CUSTOM-PAYMENT-CLIENT] FluxA Wallet Service error:', error.message);
+        if (error.response) {
+          console.error('[CUSTOM-PAYMENT-CLIENT] Response status:', error.response.status);
+          console.error('[CUSTOM-PAYMENT-CLIENT] Response data:', JSON.stringify(error.response.data, null, 2));
+        }
         return {
           isError: true,
           content: [{ type: 'text', text: `Payment creation failed: ${error.message}` }]

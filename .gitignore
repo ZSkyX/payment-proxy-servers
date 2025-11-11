@@ -20,8 +20,8 @@ lerna-debug.log*
 
 # Environment variables
 .env
-.env.*.local
-.mcp.json
+.env.*
+*/.mcp.json
 
 # Private keys and secrets
 *.key
@@ -52,3 +52,5 @@ jest-results.json
 .cache/
 .eslintcache/
 vite.config.ts.timestamp-*
+
+configs-db/

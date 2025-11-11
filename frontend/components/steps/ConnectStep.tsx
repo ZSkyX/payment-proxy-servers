@@ -54,7 +54,7 @@ export function ConnectStep({ onConnect }: ConnectStepProps) {
             <label className="text-sm font-medium">Upstream Server URL</label>
             <Input
               type="url"
-              placeholder="http://localhost:3004/mcp"
+              placeholder="http://localhost:3005/mcp"
               value={upstreamUrl}
               onChange={(e) => setUpstreamUrl(e.target.value)}
               disabled={loading}

@@ -172,7 +172,8 @@ function buildPaymentRequirement(
   recipient: string,
   price: number,
   toolName: string,
-  description: string
+  description: string,
+  serverUrl: string
 ) {
   const config = PAYMENT_NETWORKS[networkId];
 
@@ -187,7 +188,7 @@ function buildPaymentRequirement(
     payTo: payTo as any,
     asset: asset as any,
     maxTimeoutSeconds: 300,
-    resource: `mcp://${toolName}` as const,
+    resource: serverUrl,
     mimeType: "application/json",
     description,
     extra: { name: config.name, version: config.version }
@@ -293,7 +294,8 @@ export function createDirectPaymentHandler(
                         config.yourWallet,
                         toolConfig.price,
                         name,
-                        toolConfig.description
+                        toolConfig.description,
+                        config.upstreamUrl
                       )
                     )
                   }
@@ -327,7 +329,8 @@ export function createDirectPaymentHandler(
                     config.yourWallet,
                     toolConfig.price,
                     name,
-                    toolConfig.description
+                    toolConfig.description,
+                    config.upstreamUrl
                   )
                 );
 
@@ -387,34 +390,47 @@ export function createDirectPaymentHandler(
 
                 // Step 5: Settle payment on-chain via facilitator
                 console.error(`[DIRECT-HANDLER] ${name} - Settling payment on-chain...`);
-                // Use node-fetch for facilitator call to avoid undici bug
-                const settlementResult = await withNodeFetch(() => settle(
-                  decodedPayment,
-                  paymentRequirement as any
-                ));
 
-                if (settlementResult.success) {
-                  console.error(`[DIRECT-HANDLER] ${name} - ✓ Payment settled:`, settlementResult.transaction);
+                try {
+                  // Use node-fetch for facilitator call to avoid undici bug
+                  const settlementResult = await withNodeFetch(() => settle(
+                    decodedPayment,
+                    paymentRequirement as any
+                  ));
 
-                  // Add settlement metadata to result
-                  result._meta = {
-                    ...(result._meta || {}),
-                    "x402/settlement": {
-                      success: true,
-                      transaction: settlementResult.transaction,
-                      network: settlementResult.network,
-                      payer: settlementResult.payer
-                    }
-                  };
-                } else {
-                  console.error(`[DIRECT-HANDLER] ${name} - ⚠️  Settlement failed:`, settlementResult.errorReason);
+                  if (settlementResult.success) {
+                    console.error(`[DIRECT-HANDLER] ${name} - ✓ Payment settled:`, settlementResult.transaction);
 
-                  // Still return successful tool result, but note settlement failure
+                    // Add settlement metadata to result
+                    result._meta = {
+                      ...(result._meta || {}),
+                      "x402/settlement": {
+                        success: true,
+                        transaction: settlementResult.transaction,
+                        network: settlementResult.network,
+                        payer: settlementResult.payer
+                      }
+                    };
+                  } else {
+                    console.error(`[DIRECT-HANDLER] ${name} - ⚠️  Settlement failed:`, settlementResult.errorReason);
+
+                    // Still return successful tool result, but note settlement failure
+                    result._meta = {
+                      ...(result._meta || {}),
+                      "x402/settlement": {
+                        success: false,
+                        error: settlementResult.errorReason
+                      }
+                    };
+                  }
+                } catch (settlementError: any) {
+                  // Settlement failure is non-fatal - still return successful tool result
+                  console.error(`[DIRECT-HANDLER] ${name} - ⚠️  Settlement exception:`, settlementError.message);
                   result._meta = {
                     ...(result._meta || {}),
                     "x402/settlement": {
                       success: false,
-                      error: settlementResult.errorReason
+                      error: settlementError.message
                     }
                   };
                 }

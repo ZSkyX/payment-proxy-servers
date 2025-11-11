@@ -1,11 +1,9 @@
 /**
  * Custom X402 Payment Client Wrapper
- * Replaces withX402Client from mcpay with our own implementation
+ * Uses FluxA Wallet Service for payment signing
  */
 
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { createPaymentHeader } from 'x402/client';
-import type { EvmSignerWallet } from 'x402/types';
 
 interface PaymentOption {
   scheme: string;
@@ -21,7 +19,8 @@ interface PaymentOption {
 }
 
 interface PaymentClientConfig {
-  signer: EvmSignerWallet;
+  fluxaWalletServiceUrl: string;
+  agentJwt: string;
   network: string;
   confirmationCallback?: (options: PaymentOption[]) => Promise<boolean>;
 }
@@ -30,7 +29,7 @@ export function createPaymentClient(
   client: Client,
   config: PaymentClientConfig
 ) {
-  const { signer, network, confirmationCallback } = config;
+  const { fluxaWalletServiceUrl, agentJwt, network, confirmationCallback } = config;
 
   // Store the original callTool method
   const originalCallTool = client.callTool.bind(client);
@@ -72,28 +71,71 @@ export function createPaymentClient(
         };
       }
 
-      console.error('[CUSTOM-PAYMENT-CLIENT] Creating payment token...');
+      console.error('[CUSTOM-PAYMENT-CLIENT] Creating payment via FluxA Wallet Service...');
 
-      // Create payment requirement object for x402/client
-      const paymentRequirement = {
-        scheme: selectedOption.scheme as "exact",
-        network: selectedOption.network as any,
-        maxAmountRequired: selectedOption.maxAmountRequired,
-        payTo: selectedOption.payTo as `0x${string}`,
-        asset: selectedOption.asset as `0x${string}`,
-        maxTimeoutSeconds: selectedOption.maxTimeoutSeconds,
-        resource: selectedOption.resource as any,
-        mimeType: selectedOption.mimeType,
-        description: selectedOption.description,
-        extra: selectedOption.extra
-      };
+      // Extract host from resource URL
+      let host: string;
+      try {
+        const resourceUrl = new URL(selectedOption.resource);
+        host = resourceUrl.hostname;
+      } catch {
+        // If resource is not a full URL, try to extract from scheme
+        host = selectedOption.resource.replace('mcp://', '').split('/')[0];
+      }
 
-      // Create payment token using x402/client
-      const paymentToken = await createPaymentHeader(
-        signer,
-        1, // version
-        paymentRequirement
-      );
+      // Call FluxA Wallet Service to create payment
+      let paymentResponse;
+      try {
+        const response = await fetch(`${fluxaWalletServiceUrl}/api/payment/x402V1Payment`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${agentJwt}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            scheme: selectedOption.scheme,
+            network: selectedOption.network,
+            amount: selectedOption.maxAmountRequired,
+            currency: 'USDC',
+            assetAddress: selectedOption.asset,
+            payTo: selectedOption.payTo,
+            host: host,
+            resource: selectedOption.resource,
+            description: selectedOption.description,
+            tokenName: selectedOption.extra?.name || 'USDC',
+            tokenVersion: selectedOption.extra?.version || '2',
+            validityWindowSeconds: selectedOption.maxTimeoutSeconds || 60
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`FluxA Wallet Service error: ${errorData.message || response.statusText}`);
+        }
+
+        paymentResponse = await response.json();
+      } catch (error: any) {
+        console.error('[CUSTOM-PAYMENT-CLIENT] FluxA Wallet Service error:', error.message);
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Payment creation failed: ${error.message}` }]
+        };
+      }
+
+      // Check if payment needs user approval
+      if (paymentResponse.status === 'need_approval') {
+        console.error('[CUSTOM-PAYMENT-CLIENT] Payment requires user approval:', paymentResponse.approvalUrl);
+        return {
+          isError: true,
+          content: [{
+            type: 'text',
+            text: `Payment requires approval. Please visit: ${paymentResponse.approvalUrl}\nThen retry this operation.`
+          }]
+        };
+      }
+
+      // Encode payment as base64
+      const paymentToken = Buffer.from(JSON.stringify(paymentResponse.xPayment || paymentResponse)).toString('base64');
 
       console.error('[CUSTOM-PAYMENT-CLIENT] Payment token created, retrying with payment...');
 

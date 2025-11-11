@@ -10,7 +10,6 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { createPaymentClient } from './payment-client.js';
-import { createSigner, isEvmSignerWallet } from 'x402/types';
 import { config as loadEnv } from 'dotenv';
 import {
   CallToolRequestSchema,
@@ -36,22 +35,26 @@ async function main() {
 
   const serverUrl = args[urlIndex + 1];
 
-  console.error('Creating MCP client with payment support...');
+  console.error('Creating MCP client with FluxA Wallet Service payment support...');
   console.error('URL:', serverUrl);
-  console.error('EVM Private Key:', process.env.EVM_PRIVATE_KEY ? 'Set' : 'Not set');
 
-  // Ensure private key has 0x prefix
-  const evmPrivateKey = process.env.EVM_PRIVATE_KEY!;
-  const formattedEvmKey = evmPrivateKey.startsWith('0x') ? evmPrivateKey : `0x${evmPrivateKey}`;
+  // Check required environment variables
+  const fluxaWalletServiceUrl = process.env.FLUXA_WALLET_SERVICE_URL;
+  const agentJwt = process.env.AGENT_JWT;
 
-  // Create signer for EVM network
-  const evmSigner = await createSigner('base-sepolia', formattedEvmKey);
-
-  if (!isEvmSignerWallet(evmSigner)) {
-    throw new Error("Failed to create EVM signer");
+  if (!fluxaWalletServiceUrl) {
+    console.error('Error: FLUXA_WALLET_SERVICE_URL environment variable is required');
+    process.exit(1);
   }
 
-  console.error('EVM Signer created');
+  if (!agentJwt) {
+    console.error('Error: AGENT_JWT environment variable is required');
+    console.error('Get your JWT from FluxA Wallet Service after agent authorization');
+    process.exit(1);
+  }
+
+  console.error('FluxA Wallet Service URL:', fluxaWalletServiceUrl);
+  console.error('Agent JWT:', agentJwt.substring(0, 20) + '...');
 
   const url = new URL(serverUrl);
 
@@ -67,9 +70,10 @@ async function main() {
   // Get preferred network from environment
   const evmNetwork = process.env.EVM_NETWORK || 'base-sepolia';
 
-  // Wrap client with our custom X402 payment capabilities
+  // Wrap client with FluxA X402 payment capabilities
   const paymentClient = createPaymentClient(client, {
-    signer: evmSigner,
+    fluxaWalletServiceUrl,
+    agentJwt,
     network: evmNetwork,
     confirmationCallback: async (paymentOptions) => {
       console.error("Payment requested on the following networks:");
@@ -77,11 +81,11 @@ async function main() {
         console.error(`- ${p.network}: ${p.maxAmountRequired} (${p.description})`);
       });
 
-      console.error(`Auto-approving payment on ${evmNetwork}`);
-      return true; // Auto-approve
+      console.error(`Using network: ${evmNetwork}`);
+      return true; // Auto-approve (user approves via FluxA UI)
     }
   });
-  console.error('Payment client wrapped with custom X402 capabilities');
+  console.error('Payment client configured with FluxA Wallet Service');
 
   // List available tools from upstream
   const upstreamTools = await paymentClient.listTools();

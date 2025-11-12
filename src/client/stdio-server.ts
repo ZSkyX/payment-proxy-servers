@@ -68,7 +68,7 @@ async function main() {
   console.error('MCP client connected');
 
   // Get preferred network from environment
-  const evmNetwork = process.env.EVM_NETWORK || 'base-sepolia';
+  const evmNetwork = process.env.EVM_NETWORK;
 
   // Wrap client with FluxA X402 payment capabilities
   const paymentClient = createPaymentClient(client, {

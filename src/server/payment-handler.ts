@@ -8,9 +8,18 @@
 import nodeFetch from 'node-fetch';
 
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { verify, settle, useFacilitator } from "x402/verify";
+import { useFacilitator } from "x402/verify";
 import { decodePayment } from "x402/schemes";
+import { facilitator } from "@coinbase/x402";
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+import { config } from "dotenv";
+
+
+config({ path: resolve(__dirname, '../../.env') });
 // Store original fetch
 const originalFetch = globalThis.fetch;
 
@@ -27,7 +36,10 @@ async function withNodeFetch<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 // Configure facilitator for payment verification at module level
-useFacilitator({ url: "https://www.x402.org/facilitator" });
+// const {verify, settle} = useFacilitator({ url: "https://www.x402.org/facilitator" });
+// const {verify, settle} = useFacilitator(facilitator);
+const {verify, settle} = useFacilitator({ url: "https://facilitator.xechoai.xyz" });
+
 
 interface ToolConfig {
   name: string;
@@ -59,7 +71,7 @@ const PAYMENT_NETWORKS: Record<string, NetworkConfig> = {
     asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
     decimals: 6,
     symbol: 'USDC',
-    name: 'USDC',
+    name: 'USD Coin',
     version: '2',
     type: 'evm'
   },
@@ -68,7 +80,7 @@ const PAYMENT_NETWORKS: Record<string, NetworkConfig> = {
     asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     decimals: 6,
     symbol: 'USDC',
-    name: 'USDC',
+    name: 'USD Coin',
     version: '2',
     type: 'evm'
   },
@@ -197,7 +209,8 @@ function buildPaymentRequirement(
 
 export function createDirectPaymentHandler(
   config: ServerConfig,
-  upstreamClient: Client
+  upstreamClient: Client,
+  resourceUrl: string  // Full URL to this proxy endpoint including configId
 ): (req: Request) => Promise<Response> {
 
   return async (req: Request): Promise<Response> => {
@@ -295,7 +308,7 @@ export function createDirectPaymentHandler(
                         toolConfig.price,
                         name,
                         toolConfig.description,
-                        config.upstreamUrl
+                        resourceUrl  // Use the actual resource URL instead of upstreamUrl
                       )
                     )
                   }
@@ -330,7 +343,7 @@ export function createDirectPaymentHandler(
                     toolConfig.price,
                     name,
                     toolConfig.description,
-                    config.upstreamUrl
+                    resourceUrl  // Use the actual resource URL instead of upstreamUrl
                   )
                 );
 
@@ -380,7 +393,47 @@ export function createDirectPaymentHandler(
 
                 console.error(`[DIRECT-HANDLER] ${name} - ✓ Payment verified from:`, verificationResult.payer);
 
-                // Step 4: Call upstream tool
+                // Step 4: Settle payment on-chain via facilitator BEFORE calling upstream
+                console.error(`[DIRECT-HANDLER] ${name} - Settling payment on-chain...`);
+                
+                let settlementResult: any;
+                try {
+                  // Use node-fetch for facilitator call to avoid undici bug
+                  settlementResult = await withNodeFetch(() => settle(
+                    decodedPayment,
+                    paymentRequirement as any
+                  ));
+
+                  if (!settlementResult.success) {
+                    console.error(`[DIRECT-HANDLER] ${name} - ✗ Settlement failed:`, settlementResult.errorReason);
+                    result = {
+                      isError: true,
+                      content: [{
+                        type: "text",
+                        text: `Payment settlement failed: ${settlementResult.errorReason}`
+                      }]
+                    };
+                    throw new Error("PAYMENT_SETTLEMENT_FAILED");
+                  }
+
+                  console.error(`[DIRECT-HANDLER] ${name} - ✓ Payment settled:`, settlementResult.transaction);
+
+                } catch (settlementError: any) {
+                  if (settlementError.message !== "PAYMENT_SETTLEMENT_FAILED") {
+                    console.error(`[DIRECT-HANDLER] ${name} - ✗ Settlement exception:`, settlementError.message);
+                    result = {
+                      isError: true,
+                      content: [{
+                        type: "text",
+                        text: `Payment settlement error: ${settlementError.message}`
+                      }]
+                    };
+                    throw new Error("PAYMENT_SETTLEMENT_FAILED");
+                  }
+                  throw settlementError;
+                }
+
+                // Step 5: Call upstream tool ONLY after successful settlement
                 console.error(`[DIRECT-HANDLER] ${name} - Calling upstream...`);
                 result = await upstreamClient.callTool({
                   name,
@@ -388,58 +441,23 @@ export function createDirectPaymentHandler(
                 });
                 console.error(`[DIRECT-HANDLER] ${name} - ✓ Upstream success`);
 
-                // Step 5: Settle payment on-chain via facilitator
-                console.error(`[DIRECT-HANDLER] ${name} - Settling payment on-chain...`);
-
-                try {
-                  // Use node-fetch for facilitator call to avoid undici bug
-                  const settlementResult = await withNodeFetch(() => settle(
-                    decodedPayment,
-                    paymentRequirement as any
-                  ));
-
-                  if (settlementResult.success) {
-                    console.error(`[DIRECT-HANDLER] ${name} - ✓ Payment settled:`, settlementResult.transaction);
-
-                    // Add settlement metadata to result
-                    result._meta = {
-                      ...(result._meta || {}),
-                      "x402/settlement": {
-                        success: true,
-                        transaction: settlementResult.transaction,
-                        network: settlementResult.network,
-                        payer: settlementResult.payer
-                      }
-                    };
-                  } else {
-                    console.error(`[DIRECT-HANDLER] ${name} - ⚠️  Settlement failed:`, settlementResult.errorReason);
-
-                    // Still return successful tool result, but note settlement failure
-                    result._meta = {
-                      ...(result._meta || {}),
-                      "x402/settlement": {
-                        success: false,
-                        error: settlementResult.errorReason
-                      }
-                    };
+                // Add settlement metadata to result
+                result._meta = {
+                  ...(result._meta || {}),
+                  "x402/settlement": {
+                    success: true,
+                    transaction: settlementResult.transaction,
+                    network: settlementResult.network,
+                    payer: settlementResult.payer
                   }
-                } catch (settlementError: any) {
-                  // Settlement failure is non-fatal - still return successful tool result
-                  console.error(`[DIRECT-HANDLER] ${name} - ⚠️  Settlement exception:`, settlementError.message);
-                  result._meta = {
-                    ...(result._meta || {}),
-                    "x402/settlement": {
-                      success: false,
-                      error: settlementError.message
-                    }
-                  };
-                }
+                };
 
               } catch (error: any) {
                 // Only log if it's not our intentional control flow errors
                 if (error.message !== "PAYMENT_DECODE_FAILED" &&
                     error.message !== "PAYMENT_VERIFICATION_FAILED" &&
-                    error.message !== "PAYMENT_NETWORK_UNSUPPORTED") {
+                    error.message !== "PAYMENT_NETWORK_UNSUPPORTED" &&
+                    error.message !== "PAYMENT_SETTLEMENT_FAILED") {
                   console.error(`[DIRECT-HANDLER] ${name} - ✗ Unexpected error:`, error.message);
                   result = {
                     isError: true,

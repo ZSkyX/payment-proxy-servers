@@ -5,14 +5,20 @@ import { config } from "dotenv";
 import { withPaymentInterceptor, decodeXPaymentResponse } from "x402-axios";
 import axios from "axios";
 import { webcrypto } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 if (!globalThis.crypto) {
   globalThis.crypto = webcrypto as any;
 }
-config();
+config({ path: resolve(__dirname, '../../.env') });
 
 // Create a wallet client (using your private key)
 const pkey = process.env.PRIVATE_KEY as `0x${string}`;
+console.log(pkey)
 const account = privateKeyToAccount(pkey); // we recommend using an environment variable for this
 
 

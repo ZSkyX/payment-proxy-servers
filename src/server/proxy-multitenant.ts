@@ -24,8 +24,9 @@ interface ServerConfig {
   tools: ToolConfig[]
 }
 
-// Port configuration
-const PROXY_PORT = parseInt(process.env.PROXY_PORT || "3003")
+// Server configuration
+const BASE_URL = process.env.SERVING_URL || `http://localhost:3003`
+const PROXY_PORT = parseInt(new URL(BASE_URL).port)
 
 // Config cache to avoid reading from disk on every request
 const configCache = new Map<string, { config: ServerConfig; loadedAt: number }>()
@@ -90,8 +91,13 @@ async function createMcpHandlerForConfig(configId: string, config: ServerConfig)
   // Get upstream client
   const upstream = await getUpstreamClient(configId, config.upstreamUrl)
 
+  // Construct the full resource URL for this proxy endpoint
+  const resourceUrl = `${BASE_URL}/mcp/${configId}`
+
+  console.log(`[${configId}] Resource URL for payments: ${resourceUrl}`)
+
   // Create our direct payment handler
-  return createDirectPaymentHandler(config, upstream)
+  return createDirectPaymentHandler(config, upstream, resourceUrl)
 }
 
 // Start multi-tenant proxy server
@@ -189,7 +195,7 @@ console.log(`
 ║  Mode: Multi-Tenant                                        ║
 ║                                                            ║
 ║  Usage:                                                    ║
-║    POST http://localhost:${PROXY_PORT}/mcp/{configId}              ║
+║    URL ${BASE_URL}/mcp/{configId}              ║
 ║                                                            ║
 ║  Configs loaded from: ${path.join(__dirname, "configs-db").slice(0, 32).padEnd(32)} ║
 ╚════════════════════════════════════════════════════════════╝

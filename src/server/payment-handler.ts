@@ -107,7 +107,7 @@ const PAYMENT_NETWORKS: Record<string, NetworkConfig> = {
     asset: '0xcdf79194c6c285077a58da47641d4dbe51f63542',
     decimals: 6,
     symbol: 'USDC',
-    name: 'USDC',
+    name: 'USD Coin',
     version: '2',
     type: 'evm'
   },
@@ -116,7 +116,7 @@ const PAYMENT_NETWORKS: Record<string, NetworkConfig> = {
     asset: '0xe15fc38f6d8c56af07bbcbe3baf5708a2bf42392',
     decimals: 6,
     symbol: 'USDC',
-    name: 'USDC',
+    name: 'USD Coin',
     version: '2',
     type: 'evm'
   },
@@ -125,7 +125,7 @@ const PAYMENT_NETWORKS: Record<string, NetworkConfig> = {
     asset: '0x4fcf1784b31630811181f670aea7a7bef803eaed',
     decimals: 6,
     symbol: 'USDC',
-    name: 'USDC',
+    name: 'USD Coin',
     version: '2',
     type: 'evm'
   },
@@ -134,7 +134,7 @@ const PAYMENT_NETWORKS: Record<string, NetworkConfig> = {
     asset: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582',
     decimals: 6,
     symbol: 'USDC',
-    name: 'USDC',
+    name: 'USD Coin',
     version: '2',
     type: 'evm'
   },
@@ -143,7 +143,7 @@ const PAYMENT_NETWORKS: Record<string, NetworkConfig> = {
     asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
     decimals: 6,
     symbol: 'USDC',
-    name: 'USDC',
+    name: 'USD Coin',
     version: '1',
     type: 'svm'
   },
@@ -152,7 +152,7 @@ const PAYMENT_NETWORKS: Record<string, NetworkConfig> = {
     asset: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
     decimals: 6,
     symbol: 'USDC',
-    name: 'USDC',
+    name: 'USD Coin',
     version: '1',
     type: 'svm'
   }

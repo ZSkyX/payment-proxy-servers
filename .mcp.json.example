@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "962988ed-e371-47e7-b132-c904576ad29b": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fluxa-pay/fluxa-connect-mcp",
+        "--url",
+        "http://localhost:3003/mcp/962988ed-e371-47e7-b132-c904576ad29b"
+      ],
+      "env": {
+        "AGENT_EMAIL": "sky@fluxapay.xyz",
+        "AGENT_NAME": "cc6"
+      }
+    }
+  }
+}

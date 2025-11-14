@@ -9,12 +9,14 @@ import { ServerConfig, ToolConfig, FetchedTool } from "@/lib/types";
 export default function Home() {
   const [step, setStep] = useState(1);
   const [upstreamUrl, setUpstreamUrl] = useState("");
+  const [serverName, setServerName] = useState("");
   const [tools, setTools] = useState<ToolConfig[]>([]);
   const [yourWallet, setYourWallet] = useState("");
   const [apiKey, setApiKey] = useState("");
 
-  const handleConnect = (url: string, fetchedTools: FetchedTool[]) => {
+  const handleConnect = (url: string, name: string, fetchedTools: FetchedTool[]) => {
     setUpstreamUrl(url);
+    setServerName(name);
     setTools(
       fetchedTools.map((tool) => ({
         name: tool.name,
@@ -34,6 +36,7 @@ export default function Home() {
 
   const getConfig = (): ServerConfig => ({
     upstreamUrl,
+    serverName,
     yourWallet,
     tools,
   });

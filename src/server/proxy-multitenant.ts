@@ -6,10 +6,13 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import * as fs from "fs"
 import * as path from "path"
 import { fileURLToPath } from "url"
+import { config } from "dotenv"
+import { resolve } from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+config({ path: resolve(__dirname, '../../.env') });
 // Configuration structure
 interface ToolConfig {
   name: string

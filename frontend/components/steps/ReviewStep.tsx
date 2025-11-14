@@ -24,13 +24,6 @@ export function ReviewStep({ config, apiKey, onBack }: ReviewStepProps) {
     proxyUrl: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
-  const [registering, setRegistering] = useState(false);
-  const [registrationData, setRegistrationData] = useState<{
-    agent_id: string;
-    jwt: string;
-    email: string;
-    agent_name: string;
-  } | null>(null);
   const [email, setEmail] = useState("");
   const [agentName, setAgentName] = useState("");
 
@@ -74,61 +67,21 @@ export function ReviewStep({ config, apiKey, onBack }: ReviewStepProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleRegister = async () => {
-    if (!email || !agentName) {
-      setError("Please provide both email and agent name");
-      return;
-    }
-
-    setRegistering(true);
-    setError("");
-
-    try {
-      const response = await fetch("https://agentid.fluxapay.xyz/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          agent_name: agentName,
-          client_info: "MCP Proxy Configuration Tool",
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Registration failed");
-      }
-
-      setRegistrationData({
-        agent_id: data.agent_id,
-        jwt: data.jwt,
-        email: data.email,
-        agent_name: data.agent_name,
-      });
-    } catch (err: any) {
-      setError(`Registration failed: ${err.message}`);
-    } finally {
-      setRegistering(false);
-    }
-  };
-
-  const claudeDesktopConfig = savedData && registrationData
+  const claudeDesktopConfig = savedData && email && agentName
     ? JSON.stringify(
         {
           mcpServers: {
             [savedData.configId]: {
               command: "npx",
               args: [
-                "tsx",
-                "/Users/zskyx/Documents/fluxA/code/x402/test-x402-mcp/src/client/stdio-server.ts",
+                "-y",
+                "@fluxa-pay/fluxa-connect-mcp",
                 "--url",
                 savedData.proxyUrl,
               ],
               env: {
-                FLUXA_WALLET_SERVICE_URL: "https://walletapi.fluxapay.xyz",
-                AGENT_JWT: registrationData.jwt,
-                EVM_NETWORK: "base",
+                AGENT_EMAIL: email,
+                AGENT_NAME: agentName,
               },
             },
           },
@@ -184,87 +137,48 @@ export function ReviewStep({ config, apiKey, onBack }: ReviewStepProps) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Register AI Agent with FluxA</CardTitle>
+            <CardTitle>Agent Configuration</CardTitle>
             <CardDescription>
-              Register your agent to get authentication credentials for payment processing
+              Provide your details for agent registration with FluxA
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {!registrationData ? (
-              <>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Email</label>
-                    <Input
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={registering}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Agent Name</label>
-                    <Input
-                      type="text"
-                      placeholder="My MCP Agent"
-                      value={agentName}
-                      onChange={(e) => setAgentName(e.target.value)}
-                      disabled={registering}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleRegister}
-                    disabled={registering || !email || !agentName}
-                    className="w-full"
-                  >
-                    {registering && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {registering ? "Registering..." : "Register Agent"}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    <h3 className="font-semibold text-green-900">Agent Registered!</h3>
-                  </div>
-                  <div className="space-y-1 text-sm text-green-800">
-                    <p><span className="font-medium">Agent ID:</span> <code className="bg-green-100 px-1 py-0.5 rounded">{registrationData.agent_id}</code></p>
-                    <p><span className="font-medium">Email:</span> {registrationData.email}</p>
-                    <p><span className="font-medium">Agent Name:</span> {registrationData.agent_name}</p>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Your email will be used to register your agent with FluxA
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Agent Name</label>
+                <Input
+                  type="text"
+                  placeholder="Claude Code - My Agent"
+                  value={agentName}
+                  onChange={(e) => setAgentName(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  A descriptive name to identify this agent in FluxA dashboard
+                </p>
+              </div>
+            </div>
 
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle className="h-5 w-5 text-yellow-600" />
-                    <h3 className="font-semibold text-yellow-900">Authorization Required</h3>
-                  </div>
-                  <p className="text-sm text-yellow-800 mb-3">
-                    You need to authorize this agent to use your FluxA wallet for payments. Click the button below to open the authorization page.
-                  </p>
-                  <Button
-                    onClick={() => {
-                      const authUrl = `https://agentwallet.fluxapay.xyz/add-agent?agentId=${registrationData.agent_id}&name=${encodeURIComponent(registrationData.agent_name)}`;
-                      window.open(authUrl, '_blank');
-                    }}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    Authorize Agent in FluxA Wallet
-                  </Button>
-                  <p className="text-xs text-yellow-700 mt-2">
-                    💡 After authorization, your agent will be able to make payments on your behalf using FluxA's custodial wallet service.
-                  </p>
-                </div>
+            {email && agentName && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                💡 <strong>Note:</strong> Your agent will be automatically registered with FluxA when Claude starts. You'll need to authorize it in the FluxA wallet to enable payments.
               </div>
             )}
           </CardContent>
         </Card>
 
-        {registrationData && (
+        {email && agentName && (
           <Card>
             <CardHeader>
               <CardTitle>Claude Desktop Integration</CardTitle>
@@ -303,16 +217,15 @@ export function ReviewStep({ config, apiKey, onBack }: ReviewStepProps) {
                 <h3 className="font-semibold">Setup Instructions:</h3>
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                   <li>Copy the configuration JSON above</li>
-                  <li>Update the path to stdio-server.ts to match your local installation</li>
                   <li>Open Claude Desktop settings (usually at ~/.claude/config.json on Mac/Linux)</li>
                   <li>Add or merge this configuration to the mcpServers section</li>
-                  <li>Make sure the proxy server is running: npm run proxy-configured</li>
+                  <li>Make sure the proxy server is running: npm run proxy</li>
                   <li>Restart Claude Desktop to apply changes</li>
                 </ol>
               </div>
 
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
-                💡 <strong>Note:</strong> Your Agent JWT is embedded in the config. This allows Claude to make payments on your behalf using FluxA's custodial wallet service.
+                💡 <strong>Note:</strong> When Claude starts, the FluxA Connect MCP package will automatically register your agent. Visit <a href="https://agentwallet.fluxapay.xyz" target="_blank" rel="noopener noreferrer" className="underline font-semibold">agentwallet.fluxapay.xyz</a> to authorize your agent and enable payments.
               </div>
             </CardContent>
           </Card>

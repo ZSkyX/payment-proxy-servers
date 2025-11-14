@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env node
 /**
  * MCP Stdio Server that wraps an X402 payment-enabled client
  * This allows Claude Code to connect via stdio while the server handles payments internally
@@ -38,23 +38,65 @@ async function main() {
   console.error('Creating MCP client with FluxA Wallet Service payment support...');
   console.error('URL:', serverUrl);
 
-  // Check required environment variables
-  const fluxaWalletServiceUrl = process.env.FLUXA_WALLET_SERVICE_URL;
-  const agentJwt = process.env.AGENT_JWT;
+  // FluxA configuration
+  const fluxaWalletServiceUrl = process.env.FLUXA_WALLET_SERVICE_URL || "https://walletapi.fluxapay.xyz";
+  const evmNetwork = process.env.EVM_NETWORK || "base";
 
-  if (!fluxaWalletServiceUrl) {
-    console.error('Error: FLUXA_WALLET_SERVICE_URL environment variable is required');
+  // Check for agent registration credentials
+  const agentEmail = process.env.AGENT_EMAIL;
+  const agentName = process.env.AGENT_NAME || "Claude Code - My Agent";
+  const clientInfo = process.env.CLIENT_INFO || "FluxA Connect MCP Client";
+
+  if (!agentEmail || !agentName) {
+    console.error('Error: AGENT_EMAIL and AGENT_NAME environment variables are required');
+    console.error('');
+    console.error('Example:');
+    console.error('  AGENT_EMAIL=your@email.com');
+    console.error('  AGENT_NAME="Claude Code - Your Name"');
+    console.error('  CLIENT_INFO="Claude Code on macOS" (optional)');
     process.exit(1);
   }
 
-  if (!agentJwt) {
-    console.error('Error: AGENT_JWT environment variable is required');
-    console.error('Get your JWT from FluxA Wallet Service after agent authorization');
+  // Register agent with FluxA and get JWT
+  console.error('Registering agent with FluxA...');
+  console.error('Email:', agentEmail);
+  console.error('Agent Name:', agentName);
+
+  let agentJwt: string;
+  let agentId: string;
+
+  try {
+    const response = await fetch("https://agentid.fluxapay.xyz/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: agentEmail,
+        agent_name: agentName,
+        client_info: clientInfo,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Registration failed");
+    }
+
+    agentJwt = data.jwt;
+    agentId = data.agent_id;
+
+    console.error('✓ Agent registered successfully');
+    console.error('Agent ID:', agentId);
+    console.error('JWT obtained');
+  } catch (error: any) {
+    console.error('✗ Agent registration failed:', error.message);
+    console.error('');
+    console.error('Please check:');
+    console.error('  - Your email and agent name are correct');
+    console.error('  - You have internet connectivity');
+    console.error('  - FluxA registration service is available');
     process.exit(1);
   }
-
-  console.error('FluxA Wallet Service URL:', fluxaWalletServiceUrl);
-  console.error('Agent JWT:', agentJwt.substring(0, 20) + '...');
 
   const url = new URL(serverUrl);
 
@@ -68,12 +110,12 @@ async function main() {
   console.error('MCP client connected');
 
   // Get preferred network from environment
-  const evmNetwork = process.env.EVM_NETWORK;
 
   // Wrap client with FluxA X402 payment capabilities
   const paymentClient = createPaymentClient(client, {
     fluxaWalletServiceUrl,
     agentJwt,
+    agentName,
     network: evmNetwork,
     confirmationCallback: async (paymentOptions) => {
       console.error("Payment requested on the following networks:");
@@ -95,7 +137,7 @@ async function main() {
   // Create MCP stdio server
   const server = new Server(
     {
-      name: 'snack-server',
+      name: 'fluxa-connect-mcp',
       version: '1.0.0',
     },
     {

@@ -22,12 +22,17 @@ export async function POST(request: NextRequest) {
     const transport = new StreamableHTTPClientTransport(new URL(upstreamUrl));
     await client.connect(transport);
 
+    // Get server info
+    const serverInfo = client.getServerVersion();
+
     // Fetch tools
     const toolsResponse = await client.listTools();
     await client.close();
 
     return NextResponse.json({
       success: true,
+      serverName: serverInfo?.name || 'Unknown Server',
+      serverVersion: serverInfo?.version || '1.0.0',
       tools: toolsResponse.tools.map((tool: any) => ({
         name: tool.name,
         description: tool.description,

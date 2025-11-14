@@ -19,26 +19,65 @@ if (!globalThis.crypto) {
 loadEnv();
 
 // Test configuration
-const FLUXA_WALLET_SERVICE_URL = process.env.FLUXA_WALLET_SERVICE_URL || 'https://walletapi.fluxapay.xyz';
-const AGENT_JWT = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1rZXkifQ.eyJhZ2VudF9pZCI6ImFjNmQyNWExLTcyYTUtNDgzNy1iNGNkLWU3NGY5ODIzMmIwYyIsImVtYWlsIjoic2t5QGZsdXhhcGF5Lnh5eiIsImlhdCI6MTc2Mjg5MjUzMSwiZXhwIjoxNzYyODkzNDMxfQ.sVoQ5Um2rYW7CaDqv-lD3pq7-FOxQaxh6trwGL5LmtekHoUIEC8jtN7SNe6k_RUsh-_b2lrf6DuCOxsYpIk2DAq1CRtJ3_V-jaxFCrcBpBWtm-TCUF-A9EGlQ0cHw35Z0ibYYUVZHZxP1e-FsYLtx4gvnXzTGoZx_ubgutwOt2Hb3QumbLYeYgxOE4iUf-ZGQ-e9Nu8IyL14_4PKx2vRK79iGNpAsYk14njXY-lOT6-f5uz2G9N0bSss0I491T7CMxFDniToSwQjc-L3lKxku75LRyIBO0HxBE5Sg7l06jilLAD84onQ5h09CuzjR0DcUokb53jzgLqdBYSaPFH9fw";
-const EVM_NETWORK = process.env.EVM_NETWORK || 'base';
+const FLUXA_WALLET_SERVICE_URL = 'https://walletapi.fluxapay.xyz';
+const EVM_NETWORK = 'base';
+const AGENT_EMAIL = process.env.AGENT_EMAIL || 'test@example.com';
+const AGENT_NAME = process.env.AGENT_NAME || 'Test Agent';
+const TEST_RESOURCE_URL = 'http://localhost:3003/mcp/test-config-id';
 
 console.log('=== Payment Client Test ===');
 console.log('FluxA Wallet Service URL:', FLUXA_WALLET_SERVICE_URL);
-console.log('Agent JWT (first 50 chars):', AGENT_JWT.substring(0, 50) + '...');
+console.log('Agent Email:', AGENT_EMAIL);
+console.log('Agent Name:', AGENT_NAME);
 console.log('EVM Network:', EVM_NETWORK);
 console.log('');
 
-// Decode JWT to check agent_id
-try {
-  const jwtParts = AGENT_JWT.split('.');
-  if (jwtParts.length === 3) {
-    const payload = JSON.parse(Buffer.from(jwtParts[1], 'base64').toString());
-    console.log('JWT Payload:', JSON.stringify(payload, null, 2));
+// Register agent to get JWT
+console.log('Registering agent with FluxA...');
+let AGENT_JWT: string;
+let AGENT_ID: string;
+
+async function registerAgent() {
+  try {
+    const response = await fetch("https://agentid.fluxapay.xyz/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: AGENT_EMAIL,
+        agent_name: AGENT_NAME,
+        client_info: "Payment Client Test Script",
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Registration failed");
+    }
+
+    AGENT_JWT = data.jwt;
+    AGENT_ID = data.agent_id;
+
+    console.log('✓ Agent registered successfully');
+    console.log('Agent ID:', AGENT_ID);
+    console.log('JWT obtained (first 50 chars):', AGENT_JWT.substring(0, 50) + '...');
     console.log('');
+
+    // Decode JWT to check payload
+    try {
+      const jwtParts = AGENT_JWT.split('.');
+      if (jwtParts.length === 3) {
+        const payload = JSON.parse(Buffer.from(jwtParts[1], 'base64').toString());
+        console.log('JWT Payload:', JSON.stringify(payload, null, 2));
+        console.log('');
+      }
+    } catch (error) {
+      console.error('Failed to decode JWT:', error);
+    }
+  } catch (error: any) {
+    console.error('✗ Agent registration failed:', error.message);
+    throw error;
   }
-} catch (error) {
-  console.error('Failed to decode JWT:', error);
 }
 
 // Mock MCP Client
@@ -66,11 +105,11 @@ class MockMCPClient {
                 payTo: "0x23330fCd94b07943804367C677D6a11D26e4b728",
                 asset: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
                 maxTimeoutSeconds: 300,
-                resource: "http://localhost:3003/mcp/13bd236a-a030-41a1-897f-48cbfafc8fd2",
+                resource: TEST_RESOURCE_URL,
                 mimeType: "application/json",
                 description: "Get a random snack from the snack list",
                 extra: {
-                  name: "USDC",
+                  name: "USDC Coin",
                   version: "2"
                 }
               }
@@ -130,6 +169,7 @@ async function testPaymentClient() {
   const paymentClient = createPaymentClient(mockClient, {
     fluxaWalletServiceUrl: FLUXA_WALLET_SERVICE_URL,
     agentJwt: AGENT_JWT,
+    agentName: AGENT_NAME,
     network: EVM_NETWORK,
     confirmationCallback: async (options) => {
       console.log('\n[ConfirmationCallback] Payment options received:');
@@ -162,12 +202,10 @@ async function testPaymentClient() {
 
 // Main
 async function main() {
-  if (!AGENT_JWT) {
-    console.error('❌ AGENT_JWT environment variable is not set');
-    console.error('Please set it in .env file or export it');
-    process.exit(1);
-  }
+  // Register agent first
+  await registerAgent();
 
+  // Run payment client test
   await testPaymentClient();
 
   console.log('\n=== Test Complete ===');

@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 interface ConnectStepProps {
-  onConnect: (url: string, tools: any[]) => void;
+  onConnect: (url: string, serverName: string, tools: any[]) => void;
 }
 
 export function ConnectStep({ onConnect }: ConnectStepProps) {
-  const [upstreamUrl, setUpstreamUrl] = useState("http://localhost:3004/mcp");
+  const [upstreamUrl, setUpstreamUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,7 +32,7 @@ export function ConnectStep({ onConnect }: ConnectStepProps) {
         throw new Error(data.error || "Failed to connect");
       }
 
-      onConnect(upstreamUrl, data.tools);
+      onConnect(upstreamUrl, data.serverName || 'Unknown Server', data.tools);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -54,7 +54,7 @@ export function ConnectStep({ onConnect }: ConnectStepProps) {
             <label className="text-sm font-medium">Upstream Server URL</label>
             <Input
               type="url"
-              placeholder="http://localhost:3005/mcp"
+              placeholder=""
               value={upstreamUrl}
               onChange={(e) => setUpstreamUrl(e.target.value)}
               disabled={loading}

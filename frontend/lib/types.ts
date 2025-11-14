@@ -7,6 +7,7 @@ export interface ToolConfig {
 
 export interface ServerConfig {
   upstreamUrl: string;
+  serverName: string;
   yourWallet: string;
   tools: ToolConfig[];
 }

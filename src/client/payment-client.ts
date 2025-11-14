@@ -22,15 +22,22 @@ interface PaymentOption {
 interface PaymentClientConfig {
   fluxaWalletServiceUrl: string;
   agentJwt: string;
+  agentName: string;
   network: string;
   confirmationCallback?: (options: PaymentOption[]) => Promise<boolean>;
+}
+
+interface X402Error {
+  accepts: PaymentOption[];
+  error?: string;
+  x402Version?: number;
 }
 
 export function createPaymentClient(
   client: Client,
   config: PaymentClientConfig
 ) {
-  const { fluxaWalletServiceUrl, agentJwt, network, confirmationCallback } = config;
+  const { fluxaWalletServiceUrl, agentJwt, agentName, network, confirmationCallback } = config;
 
   // Store the original callTool method
   const originalCallTool = client.callTool.bind(client);
@@ -43,7 +50,7 @@ export function createPaymentClient(
     let result = await originalCallTool(params, resultSchema, options);
 
     // Check if payment is required
-    const paymentError = result._meta?.['x402/error'];
+    const paymentError = result._meta?.['x402/error'] as X402Error | undefined;
     if (result.isError && paymentError?.accepts) {
       console.error('[CUSTOM-PAYMENT-CLIENT] Payment required');
 
@@ -127,7 +134,51 @@ export function createPaymentClient(
         if (error.response) {
           console.error('[CUSTOM-PAYMENT-CLIENT] Response status:', error.response.status);
           console.error('[CUSTOM-PAYMENT-CLIENT] Response data:', JSON.stringify(error.response.data, null, 2));
+
+          const errorData = error.response.data;
+
+          // If there's a payment_model_context with agent_not_found, build authorization link
+          if (errorData.payment_model_context && errorData.code === 'agent_not_found') {
+            const instructions = errorData.payment_model_context.instructions || '';
+
+            // Extract agent_id from instructions (it's in the error message)
+            const agentIdMatch = instructions.match(/ID:\s*([a-f0-9-]+)/i);
+            const agentId = agentIdMatch ? agentIdMatch[1] : '';
+
+            let message = `Payment failed: ${errorData.message || error.message}\n\n`;
+
+            if (agentId) {
+              const encodedName = encodeURIComponent(agentName);
+              const authUrl = `https://agentwallet.fluxapay.xyz/add-agent?agentId=${agentId}&name=${encodedName}`;
+              message += `Your agent needs to be authorized in FluxA wallet.\n\n`;
+              message += `Please open this link to authorize:\n${authUrl}\n\n`;
+              message += `After authorization, please retry this request.`;
+            } else {
+              message += instructions;
+            }
+
+            return {
+              isError: true,
+              content: [{
+                type: 'text',
+                text: message
+              }]
+            };
+          }
+
+          // For other payment_model_context errors, pass through instructions
+          if (errorData.payment_model_context) {
+            const instructions = errorData.payment_model_context.instructions || '';
+            return {
+              isError: true,
+              content: [{
+                type: 'text',
+                text: `Payment failed: ${errorData.message || error.message}\n\n${instructions}`
+              }]
+            };
+          }
         }
+
         return {
           isError: true,
           content: [{ type: 'text', text: `Payment creation failed: ${error.message}` }]

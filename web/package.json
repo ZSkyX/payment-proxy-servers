@@ -32,19 +32,20 @@
     "next-themes": "^0.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwind": "^2.4.1",
     "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "autoprefixer": "^10.4.20",
+    "autoprefixer": "^10.4.22",
     "eslint": "^8",
     "eslint-config-next": "15.1.6",
     "postcss": "^8",
+    "supabase": "^2.58.5",
     "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "^5"
   }
 }

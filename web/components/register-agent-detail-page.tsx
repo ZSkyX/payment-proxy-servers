@@ -47,7 +47,7 @@ export function RegisterAgentDetailPage({
 
   const claudeCodeConfig = `claude mcp add-json fluxa-connect '${JSON.stringify({
     command: "npx",
-    args: ["-y", "@fluxa-pay/fluxa-connect-mcp@latest", "--url", mcpServerUrl],
+    args: ["-y", "@fluxa-pay/fluxa-connect-mcp", "--url", mcpServerUrl],
     env: {
       AGENT_EMAIL: email,
       AGENT_NAME: agentName,

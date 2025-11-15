@@ -54,3 +54,4 @@ jest-results.json
 vite.config.ts.timestamp-*
 
 configs-db/
+supabase/

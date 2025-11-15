@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Loader2, AlertCircle } from "lucide-react"
 import { MonetizeDetailPage } from "./monetize-detail-page"
 import { ReviewConfigPage } from "./review-config-page"
 import { RegisterAgentDetailPage } from "./register-agent-detail-page"
@@ -16,6 +17,7 @@ interface ReviewConfig {
   totalTools: number
   enabledTools: number
   tools: Tool[]
+  serverName: string
 }
 
 interface RegisteredAgent {
@@ -41,22 +43,74 @@ export function MCPFormsPage() {
   const [reviewConfig, setReviewConfig] = useState<ReviewConfig | null>(null)
   const [registeredAgent, setRegisteredAgent] = useState<RegisteredAgent | null>(null)
 
-  const handleMonetizeSubmit = (e: React.FormEvent) => {
+  // Loading and error states for validation
+  const [validatingMonetize, setValidatingMonetize] = useState(false)
+  const [monetizeError, setMonetizeError] = useState("")
+  const [validatingRegister, setValidatingRegister] = useState(false)
+  const [registerError, setRegisterError] = useState("")
+
+  const handleMonetizeSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSelectedMonetizeUrl(monetizeUrl)
-    setMonetizeUrl("")
+    setValidatingMonetize(true)
+    setMonetizeError("")
+
+    try {
+      // Validate the MCP URL by trying to connect
+      const response = await fetch("/api/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ upstreamUrl: monetizeUrl }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to connect to MCP server")
+      }
+
+      // If validation succeeds, navigate to detail page
+      setSelectedMonetizeUrl(monetizeUrl)
+      setMonetizeUrl("")
+    } catch (err: any) {
+      setMonetizeError(err.message)
+    } finally {
+      setValidatingMonetize(false)
+    }
   }
 
-  const handleConnectSubmit = (e: React.FormEvent) => {
+  const handleConnectSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setRegisteredAgent({
-      mcpServerUrl: registerMcpUrl,
-      email,
-      agentName,
-    })
-    setRegisterMcpUrl("")
-    setEmail("")
-    setAgentName("")
+    setValidatingRegister(true)
+    setRegisterError("")
+
+    try {
+      // Validate the MCP URL by trying to connect
+      const response = await fetch("/api/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ upstreamUrl: registerMcpUrl }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to connect to MCP server")
+      }
+
+      // If validation succeeds, navigate to registration page
+      setRegisteredAgent({
+        mcpServerUrl: registerMcpUrl,
+        email,
+        agentName,
+      })
+      setRegisterMcpUrl("")
+      setEmail("")
+      setAgentName("")
+    } catch (err: any) {
+      setRegisterError(err.message)
+    } finally {
+      setValidatingRegister(false)
+    }
   }
 
   const handleNavigateToReview = (config: ReviewConfig) => {
@@ -92,6 +146,7 @@ export function MCPFormsPage() {
         totalTools={reviewConfig.totalTools}
         enabledTools={reviewConfig.enabledTools}
         tools={reviewConfig.tools}
+        serverName={reviewConfig.serverName}
         onDone={handleReviewDone}
       />
     )
@@ -127,19 +182,41 @@ export function MCPFormsPage() {
                   <Label htmlFor="monetize-url" className="text-base font-medium text-foreground">
                     Monetize MCP URL
                   </Label>
-                  <Input
-                    id="monetize-url"
-                    type="url"
-                    placeholder="https://example.com/mcp"
-                    value={monetizeUrl}
-                    onChange={(e) => setMonetizeUrl(e.target.value)}
-                    className="h-12 text-base"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="monetize-url"
+                      type="url"
+                      placeholder="https://example.com/mcp"
+                      value={monetizeUrl}
+                      onChange={(e) => {
+                        setMonetizeUrl(e.target.value)
+                        setMonetizeError("") // Clear error on change
+                      }}
+                      className="h-12 text-base pr-12"
+                      required
+                      disabled={validatingMonetize}
+                    />
+                    {validatingMonetize && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">Enter the full URL of your MCP endpoint</p>
+                  {monetizeError && (
+                    <div className="flex items-start gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-md border border-destructive/20">
+                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <span>{monetizeError}</span>
+                    </div>
+                  )}
                 </div>
-                <Button type="submit" className="w-full h-11 text-base font-semibold bg-primary hover:bg-primary/90">
-                  Add Monetize URL
+                <Button
+                  type="submit"
+                  className="w-full h-11 text-base font-semibold bg-primary hover:bg-primary/90"
+                  disabled={validatingMonetize}
+                >
+                  {validatingMonetize && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {validatingMonetize ? "Validating..." : "Add Monetize URL"}
                 </Button>
               </form>
             </CardContent>
@@ -156,16 +233,33 @@ export function MCPFormsPage() {
                   <Label htmlFor="register-mcp-url" className="text-base font-medium text-foreground">
                     Monetized MCP Server URL
                   </Label>
-                  <Input
-                    id="register-mcp-url"
-                    type="url"
-                    placeholder="https://example.com/mcp"
-                    value={registerMcpUrl}
-                    onChange={(e) => setRegisterMcpUrl(e.target.value)}
-                    className="h-12 text-base"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="register-mcp-url"
+                      type="url"
+                      placeholder="https://example.com/mcp"
+                      value={registerMcpUrl}
+                      onChange={(e) => {
+                        setRegisterMcpUrl(e.target.value)
+                        setRegisterError("") // Clear error on change
+                      }}
+                      className="h-12 text-base pr-12"
+                      required
+                      disabled={validatingRegister}
+                    />
+                    {validatingRegister && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">The URL of the MCP server to register with</p>
+                  {registerError && (
+                    <div className="flex items-start gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-md border border-destructive/20">
+                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <span>{registerError}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-base font-medium text-foreground">
@@ -179,6 +273,7 @@ export function MCPFormsPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     className="h-12 text-base"
                     required
+                    disabled={validatingRegister}
                   />
                 </div>
                 <div className="space-y-2">
@@ -193,11 +288,17 @@ export function MCPFormsPage() {
                     onChange={(e) => setAgentName(e.target.value)}
                     className="h-12 text-base"
                     required
+                    disabled={validatingRegister}
                   />
                   <p className="text-sm text-muted-foreground">A unique identifier for your agent</p>
                 </div>
-                <Button type="submit" className="w-full h-11 text-base font-semibold bg-primary hover:bg-primary/90">
-                  Register Agent
+                <Button
+                  type="submit"
+                  className="w-full h-11 text-base font-semibold bg-primary hover:bg-primary/90"
+                  disabled={validatingRegister}
+                >
+                  {validatingRegister && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {validatingRegister ? "Validating..." : "Register Agent"}
                 </Button>
               </form>
             </CardContent>

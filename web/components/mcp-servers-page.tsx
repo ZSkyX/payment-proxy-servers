@@ -15,8 +15,6 @@ interface Tool {
 interface MCPServer {
   id: string
   name: string
-  upstreamUrl: string
-  yourWallet: string
   tools: Tool[]
 }
 
@@ -26,16 +24,24 @@ export function MCPServersPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // In production, fetch from API or configs-db
-    // For now, we'll use mock data
-    try {
-      const mockServers: MCPServer[] = []
-      setServers(mockServers)
-    } catch (error) {
-      console.error("Failed to load MCP servers:", error)
-    } finally {
-      setLoading(false)
+    const fetchServers = async () => {
+      try {
+        const response = await fetch('/api/configs')
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load MCP servers')
+        }
+
+        setServers(data.configs || [])
+      } catch (error) {
+        console.error("Failed to load MCP servers:", error)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    fetchServers()
   }, [])
 
   const handleSelectServer = (serverId: string) => {

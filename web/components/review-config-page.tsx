@@ -1,8 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeftIcon, CheckCircleIcon } from "lucide-react"
+import { ArrowLeftIcon, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 interface Tool {
@@ -19,6 +20,7 @@ interface ReviewConfigPageProps {
   totalTools: number
   enabledTools: number
   tools: Tool[]
+  serverName: string
   onDone: () => void
 }
 
@@ -28,8 +30,51 @@ export function ReviewConfigPage({
   totalTools,
   enabledTools,
   tools = [],
+  serverName,
   onDone,
 }: ReviewConfigPageProps) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError("")
+
+    try {
+      // Prepare config matching the old frontend format
+      const config = {
+        upstreamUrl: mcpUrl,
+        serverName: serverName,
+        yourWallet: walletAddress,
+        tools: tools.map(tool => ({
+          name: tool.name,
+          description: tool.description,
+          enabled: tool.enabled,
+          price: tool.price,
+        })),
+      }
+
+      const response = await fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save configuration")
+      }
+
+      // Configuration saved successfully - return to main page
+      onDone()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background p-6 md:p-12">
       <div className="max-w-2xl mx-auto">
@@ -137,18 +182,30 @@ export function ReviewConfigPage({
           </CardContent>
         </Card>
 
-        <div className="flex flex-col gap-3">
+        {error && (
+          <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md mb-4">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-3">
           <Button
+            variant="outline"
             onClick={onDone}
             size="lg"
-            className="w-full h-12 px-6 text-base font-semibold bg-primary hover:bg-primary/90"
+            className="flex-1"
           >
-            <CheckCircleIcon className="h-5 w-5 mr-2" />
-            Done
+            Back
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
-            Your monetization configuration is complete and ready to use.
-          </p>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            size="lg"
+            className="flex-1 h-12 px-6 text-base font-semibold bg-primary hover:bg-primary/90"
+          >
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {saving ? "Saving..." : "Save Configuration"}
+          </Button>
         </div>
       </div>
     </main>

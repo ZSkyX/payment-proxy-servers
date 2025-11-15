@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
     // Generate multi-tenant proxy URL
-    const proxyPort = process.env.PROXY_PORT || "3003";
-    const proxyUrl = `http://localhost:${proxyPort}/mcp/${configId}`;
+    const proxyBase = process.env.PROXY_PORT;
+    const proxyUrl = `${proxyBase}/mcp/${configId}`;
 
     return NextResponse.json({
       success: true,

@@ -12,20 +12,32 @@ interface Tool {
 interface MCPServer {
   id: string
   name: string
-  upstreamUrl: string
-  yourWallet: string
   tools: Tool[]
+  proxyUrl: string
+}
+
+async function getServerConfig(id: string): Promise<MCPServer | null> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3099'
+    const response = await fetch(`${baseUrl}/api/configs/${id}`, {
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error("Error fetching server config:", error)
+    return null
+  }
 }
 
 export default async function MCPServerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-
-  // In production, fetch server config from API or configs-db
-  // For now, redirect to servers list if no data
-  // You can add logic to load from ../../../src/configs-db/${id}.json
-
-  // Mock server data for demonstration
-  const server: MCPServer | null = null
+  const server = await getServerConfig(id)
 
   if (!server) {
     redirect("/mcp-servers")

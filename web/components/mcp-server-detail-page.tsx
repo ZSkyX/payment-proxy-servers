@@ -19,9 +19,8 @@ interface Tool {
 interface MCPServer {
   id: string
   name: string
-  upstreamUrl: string
-  yourWallet: string
   tools: Tool[]
+  proxyUrl: string
 }
 
 interface MCPServerDetailPageProps {
@@ -41,9 +40,9 @@ export function MCPServerDetailPage({ server }: MCPServerDetailPageProps) {
   const jsonConfig = JSON.stringify(
     {
       mcpServers: {
-        "fluxa-connect": {
+        [server.id]: {
           command: "npx",
-          args: ["-y", "@fluxa-pay/fluxa-connect-mcp", "--url", server.upstreamUrl],
+          args: ["-y", "@fluxa-pay/fluxa-connect-mcp", "--url", server.proxyUrl],
           env: {
             AGENT_EMAIL: placeholderEmail,
             AGENT_NAME: placeholderAgentName,
@@ -55,9 +54,9 @@ export function MCPServerDetailPage({ server }: MCPServerDetailPageProps) {
     2,
   )
 
-  const claudeCodeConfig = `claude mcp add-json fluxa-connect '${JSON.stringify({
+  const claudeCodeConfig = `claude mcp add-json ${server.id} '${JSON.stringify({
     command: "npx",
-    args: ["-y", "@fluxa-pay/fluxa-connect-mcp@latest", "--url", server.upstreamUrl],
+    args: ["-y", "@fluxa-pay/fluxa-connect-mcp", "--url", server.proxyUrl],
     env: {
       AGENT_EMAIL: placeholderEmail,
       AGENT_NAME: placeholderAgentName,
@@ -74,7 +73,7 @@ export function MCPServerDetailPage({ server }: MCPServerDetailPageProps) {
           </button>
           <div>
             <h1 className="text-4xl font-bold text-foreground">{server.name}</h1>
-            <p className="text-sm text-muted-foreground mt-1 break-all">{server.upstreamUrl}</p>
+            <p className="text-xs text-muted-foreground mt-1 font-mono break-all">{server.proxyUrl}</p>
           </div>
         </div>
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { ArrowLeftIcon, WalletIcon, BookIcon as ToolIcon } from "lucide-react"
+import { ArrowLeftIcon, WalletIcon, BookIcon as ToolIcon, Loader2, AlertCircle } from "lucide-react"
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { usePrivy, useWallets } from "@privy-io/react-auth"
@@ -27,46 +27,58 @@ interface MonetizeDetailPageProps {
     totalTools: number
     enabledTools: number
     tools: Tool[]
+    serverName: string
   }) => void
 }
-
-// Mock tools data - in production, fetch from MCP server
-const MOCK_TOOLS: Tool[] = [
-  {
-    id: 1,
-    name: "Web Search",
-    description: "Search the web for information",
-    enabled: true,
-    price: 0.001,
-  },
-  {
-    id: 2,
-    name: "Data Analysis",
-    description: "Analyze and process data",
-    enabled: true,
-    price: 0.005,
-  },
-  {
-    id: 3,
-    name: "File Processing",
-    description: "Process and convert files",
-    enabled: false,
-    price: 0,
-  },
-  {
-    id: 4,
-    name: "API Integration",
-    description: "Integrate with external APIs",
-    enabled: true,
-    price: 0.002,
-  },
-]
 
 export function MonetizeDetailPage({ url, onBack, onNavigateToReview }: MonetizeDetailPageProps) {
   const { ready, authenticated, login } = usePrivy()
   const { wallets } = useWallets()
   const [walletAddress, setWalletAddress] = useState("")
-  const [tools, setTools] = useState<Tool[]>(MOCK_TOOLS)
+  const [tools, setTools] = useState<Tool[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [serverName, setServerName] = useState("Unknown Server")
+
+  // Fetch tools from MCP server on mount
+  useEffect(() => {
+    const fetchTools = async () => {
+      setLoading(true)
+      setError("")
+
+      try {
+        const response = await fetch("/api/connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ upstreamUrl: url }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to connect to MCP server")
+        }
+
+        // Convert MCP tools to our Tool format
+        const fetchedTools: Tool[] = data.tools.map((tool: any, index: number) => ({
+          id: index + 1,
+          name: tool.name,
+          description: tool.description || "No description provided",
+          enabled: true,
+          price: 0.001, // Default price
+        }))
+
+        setTools(fetchedTools)
+        setServerName(data.serverName || "Unknown Server")
+      } catch (err: any) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTools()
+  }, [url])
 
   // Auto-fill wallet address when user connects
   useEffect(() => {
@@ -90,7 +102,63 @@ export function MonetizeDetailPage({ url, onBack, onNavigateToReview }: Monetize
       totalTools: tools.length,
       enabledTools: enabledToolsCount,
       tools: tools,
+      serverName: serverName,
     })
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-background p-6 md:p-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+              <p className="text-lg text-muted-foreground">Connecting to MCP server...</p>
+              <p className="text-sm text-muted-foreground">{url}</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <main className="min-h-screen bg-background p-6 md:p-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8 flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onBack}
+              className="rounded-full hover:bg-muted"
+              aria-label="Go back"
+            >
+              <ArrowLeftIcon className="h-6 w-6" />
+            </Button>
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground">Connection Failed</h1>
+          </div>
+
+          <Card className="border-destructive">
+            <CardHeader className="bg-destructive/10 border-b border-destructive">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <CardTitle className="text-destructive">Error Connecting to MCP Server</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              <p className="text-sm text-muted-foreground">URL: {url}</p>
+              <p className="text-sm text-destructive">{error}</p>
+              <Button onClick={onBack} variant="outline">
+                Go Back
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -108,7 +176,8 @@ export function MonetizeDetailPage({ url, onBack, onNavigateToReview }: Monetize
           </Button>
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-foreground">Configure Monetization</h1>
-            <p className="text-muted-foreground mt-1">MCP URL: {url}</p>
+            <p className="text-muted-foreground mt-1">Server: {serverName}</p>
+            <p className="text-sm text-muted-foreground">URL: {url}</p>
           </div>
         </div>
 
@@ -147,7 +216,7 @@ export function MonetizeDetailPage({ url, onBack, onNavigateToReview }: Monetize
                   disabled={!ready}
                   className="h-12 px-6 text-base font-semibold bg-primary hover:bg-primary/90 w-full"
                 >
-                  Connect Privy Wallet
+                  Connect FluxA Wallet
                 </Button>
               )}
             </div>

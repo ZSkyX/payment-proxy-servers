@@ -10,7 +10,6 @@ import nodeFetch from 'node-fetch';
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { useFacilitator } from "x402/verify";
 import { decodePayment } from "x402/schemes";
-import { facilitator } from "@coinbase/x402";
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 

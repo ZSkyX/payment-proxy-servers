@@ -12,8 +12,12 @@
     "outDir": "./dist",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "paths": {
+      "@/shared/*": ["./shared/*"]
+    },
+    "baseUrl": "."
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "src/tests", "frontend", "dist"]
+  "include": ["src/**/*", "shared/**/*"],
+  "exclude": ["node_modules", "src/tests", "web", "dist"]
 }

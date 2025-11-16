@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/supabase";
+import { db } from "@/shared/database";
 
 export async function GET(request: NextRequest) {
   try {

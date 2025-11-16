@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { db } from '@/lib/supabase'
+import { db } from '@/shared/database'
 
 export function useUserSync() {
   const { user, authenticated } = usePrivy()

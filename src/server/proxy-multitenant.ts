@@ -3,11 +3,11 @@ import { Hono } from "hono"
 import { createDirectPaymentHandler } from "./payment-handler.js"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js"
-import * as fs from "fs"
 import * as path from "path"
 import { fileURLToPath } from "url"
 import { config } from "dotenv"
-import { resolve } from 'node:path';
+import { resolve } from 'node:path'
+import { db } from "@/shared/database/index.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -28,7 +28,7 @@ interface ServerConfig {
 }
 
 // Server configuration
-const BASE_URL = process.env.SERVING_URL || `http://localhost:3003`
+const BASE_URL: string = process.env.BASE_URL!;
 const PROXY_PORT = parseInt(new URL(BASE_URL).port)
 
 // Config cache to avoid reading from disk on every request
@@ -41,24 +41,39 @@ const upstreamClients = new Map<string, Client>()
 // Handler cache per config
 const handlerCache = new Map<string, (req: Request) => Promise<Response>>()
 
-function loadConfig(configId: string): ServerConfig | null {
+async function loadConfig(configId: string): Promise<ServerConfig | null> {
   // Check cache first
   const cached = configCache.get(configId)
   if (cached && Date.now() - cached.loadedAt < CACHE_TTL) {
     return cached.config
   }
 
-  const configPath = path.join(__dirname, "../configs-db", `${configId}.json`)
-
-  if (!fs.existsSync(configPath)) {
-    console.error(`[${configId}] Config not found: ${configPath}`)
-    return null
-  }
-
   try {
-    const config: ServerConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"))
+    // Load config from Supabase
+    const dbConfig = await db.getConfigByIdPublic(configId)
+
+    if (!dbConfig) {
+      console.error(`[${configId}] Config not found in database`)
+      return null
+    }
+
+    // Load tools for this config
+    const dbTools = await db.getToolsByConfigId(configId)
+
+    // Transform database format to ServerConfig format
+    const config: ServerConfig = {
+      upstreamUrl: dbConfig.upstream_url,
+      yourWallet: dbConfig.wallet_address,
+      tools: dbTools.map(tool => ({
+        name: tool.name,
+        description: tool.description || '',
+        price: Number(tool.price),
+        enabled: tool.enabled
+      }))
+    }
+
     configCache.set(configId, { config, loadedAt: Date.now() })
-    console.log(`[${configId}] Config loaded successfully`)
+    console.log(`[${configId}] Config loaded successfully from database`)
     return config
   } catch (error) {
     console.error(`[${configId}] Error loading config:`, error)
@@ -129,7 +144,7 @@ const handleMcpRequest = async (c: any) => {
   }
 
   // Load config for this request
-  const config = loadConfig(configId)
+  const config = await loadConfig(configId)
 
   if (!config) {
     console.log(`[PROXY] ❌ ERROR: Config not found for ID: ${configId}`)
@@ -200,7 +215,7 @@ console.log(`
 ║  Usage:                                                    ║
 ║    URL ${BASE_URL}/mcp/{configId}              ║
 ║                                                            ║
-║  Configs loaded from: ${path.join(__dirname, "configs-db").slice(0, 32).padEnd(32)} ║
+║  Configs source: Supabase Database                     ║
 ╚════════════════════════════════════════════════════════════╝
 `)
 

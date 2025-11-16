@@ -6,6 +6,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": ["src/client/**/*"],
-  "exclude": ["node_modules", "tests", "frontend", "dist", "src/server", "src/mcp"]
+  "include": ["cli-ts/**/*"],
+  "exclude": ["node_modules", "tests", "web", "dist", "src/server", "src/mcp"]
 }

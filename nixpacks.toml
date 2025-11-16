@@ -1,0 +1,8 @@
+# Railway configuration for proxy server
+# Skip build step since tsx runs TypeScript directly
+
+[phases.install]
+cmds = ['npm install']
+
+[phases.start]
+cmd = 'npm start'

@@ -30,8 +30,14 @@ interface ServerConfig {
 // Server configuration
 // Use Railway's PORT if provided, otherwise default to 3003
 const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT) : 3003;
-const PROXY_BASE: string = process.env.PROXY_BASE || `http://localhost:${DEFAULT_PORT}`;
-const PROXY_PORT = new URL(PROXY_BASE).port ? parseInt(new URL(PROXY_BASE).port) : DEFAULT_PORT
+const PROXY_PORT = new URL(process.env.PROXY_BASE || `http://localhost:${DEFAULT_PORT}`).port
+  ? parseInt(new URL(process.env.PROXY_BASE || `http://localhost:${DEFAULT_PORT}`).port)
+  : DEFAULT_PORT;
+
+// Public base URL - use Railway's domain if available, otherwise PROXY_BASE or localhost
+const PROXY_BASE: string = process.env.RAILWAY_PUBLIC_DOMAIN
+  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+  : process.env.PROXY_BASE || `http://localhost:${PROXY_PORT}`
 
 // Config cache to avoid reading from disk on every request
 const configCache = new Map<string, { config: ServerConfig; loadedAt: number }>()
@@ -207,6 +213,8 @@ app.post("/mcp/:configId/*", handleMcpRequest)
 
 serve({ fetch: app.fetch, port: PROXY_PORT })
 
+const displayUrl = `${PROXY_BASE}/mcp/{configId}`;
+
 console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║  🚀 Multi-Tenant MCP Proxy Server                          ║
@@ -215,7 +223,7 @@ console.log(`
 ║  Mode: Multi-Tenant                                        ║
 ║                                                            ║
 ║  Usage:                                                    ║
-║    URL ${PROXY_BASE}/mcp/{configId}              ║
+║    ${displayUrl.padEnd(58)} ║
 ║                                                            ║
 ║  Configs source: Supabase Database                     ║
 ╚════════════════════════════════════════════════════════════╝

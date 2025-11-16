@@ -1,0 +1,32 @@
+# Source code (don't publish TypeScript source)
+src/server/
+src/mcp/
+tests/
+frontend/
+
+# Environment and config files
+.env*
+.mcp.json
+tsconfig.json
+
+# Development files
+*.log
+logs/
+.DS_Store
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# CI/CD
+.github/
+
+# Documentation (optional - remove if you want to include)
+docs/
+*.md
+!README.md
+
+# Config database
+configs-db/

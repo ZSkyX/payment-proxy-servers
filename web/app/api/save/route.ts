@@ -1,44 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as fs from "fs";
-import * as path from "path";
-import { randomUUID } from "crypto";
+import { db } from "@/lib/supabase";
 
 export async function POST(request: NextRequest) {
   try {
     const config = await request.json();
 
     // Validate config
-    if (!config.upstreamUrl || !config.yourWallet || !config.tools) {
+    if (!config.upstreamUrl || !config.yourWallet || !config.tools || !config.serverDescription?.trim()) {
       return NextResponse.json(
-        { error: "Invalid configuration" },
+        { error: "Invalid configuration - all fields are required including server description" },
         { status: 400 }
       );
     }
 
-    // Generate UUID for this config
-    const configId = randomUUID();
-
-    // Create configs directory if it doesn't exist
-    const configsDir = path.join(process.cwd(), "../src/configs-db");
-    if (!fs.existsSync(configsDir)) {
-      fs.mkdirSync(configsDir, { recursive: true });
+    // Get Privy user ID from authorization header
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: "Unauthorized - missing authorization header" },
+        { status: 401 }
+      );
     }
 
-    // Path to save config with UUID
-    const configPath = path.join(configsDir, `${configId}.json`);
+    // Extract user ID from "Bearer <user_id>" format
+    const userId = authHeader.replace("Bearer ", "");
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized - invalid user ID" },
+        { status: 401 }
+      );
+    }
 
-    // Write config file
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    // Ensure user exists in database before creating config
+    await db.upsertUser({
+      id: userId,
+      email: null, // Will be set by user sync hook if available
+      wallet_address: config.yourWallet,
+    });
+
+    // Save configuration to database
+    const configId = await db.createConfig(userId, {
+      upstream_url: config.upstreamUrl,
+      server_name: config.serverName || "Unknown Server",
+      server_description: config.serverDescription,
+      wallet_address: config.yourWallet,
+      tools: config.tools,
+    });
 
     // Generate multi-tenant proxy URL
-    const proxyBase = process.env.PROXY_PORT;
+    const proxyBase = process.env.PROXY_BASE;
     const proxyUrl = `${proxyBase}/mcp/${configId}`;
 
     return NextResponse.json({
       success: true,
       message: "Configuration saved successfully",
       configId,
-      path: configPath,
       proxyUrl,
     });
   } catch (error: any) {
@@ -50,24 +66,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
-  try {
-    const configPath = path.join(
-      process.cwd(),
-      "../src/proxy-config.json"
-    );
-
-    if (!fs.existsSync(configPath)) {
-      return NextResponse.json({ config: null });
-    }
-
-    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    return NextResponse.json({ config });
-  } catch (error: any) {
-    console.error("Error loading configuration:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to load configuration" },
-      { status: 500 }
-    );
-  }
-}

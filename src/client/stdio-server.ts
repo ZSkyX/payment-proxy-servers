@@ -52,7 +52,7 @@ async function main() {
     console.error('');
     console.error('Example:');
     console.error('  AGENT_EMAIL=your@email.com');
-    console.error('  AGENT_NAME="Claude Code - Your Name"');
+    console.error('  AGENT_NAME="Claude Code - agentwallet.fluxapay.xyz"');
     console.error('  CLIENT_INFO="Claude Code on macOS" (optional)');
     process.exit(1);
   }
@@ -62,7 +62,7 @@ async function main() {
   console.error('Email:', agentEmail);
   console.error('Agent Name:', agentName);
 
-  let agentJwt: string;
+let agentJwt: string;
   let agentId: string;
 
   try {

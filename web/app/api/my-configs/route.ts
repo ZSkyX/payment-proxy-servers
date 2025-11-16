@@ -3,8 +3,25 @@ import { db } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
-    // Fetch all configs from database (public - no auth required)
-    const dbConfigs = await db.getAllConfigs();
+    // Get user ID from authorization header (required)
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: "Unauthorized - missing authorization header" },
+        { status: 401 }
+      );
+    }
+
+    const userId = authHeader.replace("Bearer ", "");
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Unauthorized - invalid user ID" },
+        { status: 401 }
+      );
+    }
+
+    // Fetch user's own configs from database
+    const dbConfigs = await db.getConfigsByUserId(userId);
 
     // For each config, fetch its tools
     const configs = await Promise.all(

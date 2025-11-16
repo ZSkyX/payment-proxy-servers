@@ -1,12 +1,12 @@
 import { Header } from "@/components/layout/header"
-import { MCPFormsPage } from "@/components/pages/mcp-forms-page"
+import { MyMonetizationPage } from "@/components/pages/my-monetization-page"
 
-export default function HomePage() {
+export default function MyMonetization() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-1">
-        <MCPFormsPage />
+        <MyMonetizationPage />
       </main>
     </div>
   )

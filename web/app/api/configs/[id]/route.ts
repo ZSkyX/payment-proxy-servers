@@ -1,33 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as fs from "fs";
-import * as path from "path";
+import { db } from "@/lib/supabase";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
-    const configsDir = path.join(process.cwd(), "../src/configs-db");
-    const configPath = path.join(configsDir, `${id}.json`);
+    const { id } = await params;
 
-    if (!fs.existsSync(configPath)) {
+    const proxyBase = process.env.PROXY_BASE;
+    const proxyUrl = `${proxyBase}/mcp/${id}`;
+
+    // Fetch from database (public endpoint - no auth required)
+    const config = await db.getConfigByIdPublic(id);
+
+    if (!config) {
       return NextResponse.json(
         { error: "Configuration not found" },
         { status: 404 }
       );
     }
 
-    const fileContent = fs.readFileSync(configPath, 'utf-8');
-    const config = JSON.parse(fileContent);
-
-    const proxyBase = process.env.PROXY_PORT;
-    const proxyUrl = `${proxyBase}/mcp/${id}`;
+    const tools = await db.getToolsByConfigId(id);
 
     return NextResponse.json({
       id,
-      name: config.serverName || 'Unknown Server',
-      tools: config.tools,
+      name: config.server_name,
+      description: config.server_description || "",
+      tools: tools.map(t => ({
+        name: t.name,
+        description: t.description || "",
+        price: Number(t.price),
+        enabled: t.enabled,
+      })),
       proxyUrl,
     });
   } catch (error: any) {

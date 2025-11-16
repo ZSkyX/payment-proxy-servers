@@ -218,7 +218,11 @@ try {
   console.log('[STARTUP] RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN)
   console.log('[STARTUP] SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'NOT SET')
 
-  serve({ fetch: app.fetch, port: PROXY_PORT })
+  serve({
+    fetch: app.fetch,
+    port: PROXY_PORT,
+    hostname: '0.0.0.0'  // Listen on all interfaces, not just localhost
+  })
 
   const displayUrl = `${PROXY_BASE}/mcp/{configId}`;
 

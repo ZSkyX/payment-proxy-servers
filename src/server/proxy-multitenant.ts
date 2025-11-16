@@ -7,7 +7,7 @@ import * as path from "path"
 import { fileURLToPath } from "url"
 import { config } from "dotenv"
 import { resolve } from 'node:path'
-import { db } from "@/shared/database/index.js"
+import { db } from "@/shared/database"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

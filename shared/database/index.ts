@@ -1,3 +1,3 @@
-export { supabase } from './client.js'
-export { db } from './queries.js'
-export type { User, UserMCPServerConfig, UserMCPServerToolConfig } from './types.js'
+export { supabase } from './client'
+export { db } from './queries'
+export type { User, UserMCPServerConfig, UserMCPServerToolConfig } from './types'

@@ -1,5 +1,5 @@
-import { supabase } from './client.js'
-import type { User, UserMCPServerConfig, UserMCPServerToolConfig } from './types.js'
+import { supabase } from './client'
+import type { User, UserMCPServerConfig, UserMCPServerToolConfig } from './types'
 
 // Helper functions for database operations
 export const db = {

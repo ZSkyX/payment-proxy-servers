@@ -28,9 +28,10 @@ interface ServerConfig {
 }
 
 // Server configuration
-// Railway provides PORT env var, use that if PROXY_BASE is not set
-const PROXY_PORT = process.env.PORT ? parseInt(process.env.PORT) : 3003;
-const PROXY_BASE: string = `${process.env.PROXY_BASE}:${PROXY_PORT}` || `http://localhost:${PROXY_PORT}`
+// Use Railway's PORT if provided, otherwise default to 3003
+const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT) : 3003;
+const PROXY_BASE: string = process.env.PROXY_BASE || `http://localhost:${DEFAULT_PORT}`;
+const PROXY_PORT = new URL(PROXY_BASE).port ? parseInt(new URL(PROXY_BASE).port) : DEFAULT_PORT
 
 // Config cache to avoid reading from disk on every request
 const configCache = new Map<string, { config: ServerConfig; loadedAt: number }>()

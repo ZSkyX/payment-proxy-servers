@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3099",
-    "prebuild": "cp -r ../shared ./shared || true",
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint"

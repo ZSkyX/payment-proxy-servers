@@ -211,11 +211,18 @@ app.post("/mcp/:configId", handleMcpRequest)
 app.post("/mcp/:configId/*", handleMcpRequest)
 
 
-serve({ fetch: app.fetch, port: PROXY_PORT })
+try {
+  console.log('[STARTUP] Starting server...')
+  console.log('[STARTUP] PORT:', PROXY_PORT)
+  console.log('[STARTUP] PROXY_BASE:', PROXY_BASE)
+  console.log('[STARTUP] RAILWAY_PUBLIC_DOMAIN:', process.env.RAILWAY_PUBLIC_DOMAIN)
+  console.log('[STARTUP] SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'NOT SET')
 
-const displayUrl = `${PROXY_BASE}/mcp/{configId}`;
+  serve({ fetch: app.fetch, port: PROXY_PORT })
 
-console.log(`
+  const displayUrl = `${PROXY_BASE}/mcp/{configId}`;
+
+  console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║  🚀 Multi-Tenant MCP Proxy Server                          ║
 ╠════════════════════════════════════════════════════════════╣
@@ -229,4 +236,8 @@ console.log(`
 ╚════════════════════════════════════════════════════════════╝
 `)
 
-console.log("\n✅ Ready to accept requests for any config UUID\n")
+  console.log("\n✅ Ready to accept requests for any config UUID\n")
+} catch (error) {
+  console.error('[STARTUP ERROR]', error)
+  process.exit(1)
+}

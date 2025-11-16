@@ -28,8 +28,8 @@ interface ServerConfig {
 }
 
 // Server configuration
-const BASE_URL: string = process.env.BASE_URL!;
-const PROXY_PORT = parseInt(new URL(BASE_URL).port)
+const PROXY_BASE: string = process.env.PROXY_BASE!;
+const PROXY_PORT = parseInt(new URL(PROXY_BASE).port)
 
 // Config cache to avoid reading from disk on every request
 const configCache = new Map<string, { config: ServerConfig; loadedAt: number }>()
@@ -110,7 +110,7 @@ async function createMcpHandlerForConfig(configId: string, config: ServerConfig)
   const upstream = await getUpstreamClient(configId, config.upstreamUrl)
 
   // Construct the full resource URL for this proxy endpoint
-  const resourceUrl = `${BASE_URL}/mcp/${configId}`
+  const resourceUrl = `${PROXY_BASE}/mcp/${configId}`
 
   console.log(`[${configId}] Resource URL for payments: ${resourceUrl}`)
 
@@ -213,7 +213,7 @@ console.log(`
 ║  Mode: Multi-Tenant                                        ║
 ║                                                            ║
 ║  Usage:                                                    ║
-║    URL ${BASE_URL}/mcp/{configId}              ║
+║    URL ${PROXY_BASE}/mcp/{configId}              ║
 ║                                                            ║
 ║  Configs source: Supabase Database                     ║
 ╚════════════════════════════════════════════════════════════╝

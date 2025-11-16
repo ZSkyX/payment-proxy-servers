@@ -25,6 +25,7 @@
     "url": "https://github.com/fluxa-pay/fluxa-connect-mcp"
   },
   "scripts": {
+    "start": "tsx src/server/proxy-multitenant.ts",
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
     "mcp-server": "tsx src/mcp/server.ts",

@@ -172,7 +172,7 @@ export function ReviewConfigPage({
             <CardDescription>Configured pricing for each tool</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
               {(tools || []).length > 0 ? (
                 (tools || []).map((tool) => (
                   <div

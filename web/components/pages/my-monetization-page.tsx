@@ -190,7 +190,10 @@ export function MyMonetizationPage() {
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction
-                        onClick={() => handleDeleteServer(server.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteServer(server.id);
+                        }}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
                         Delete

@@ -35,7 +35,7 @@ Add to your `.mcp.json`:
 
 To use it directly
 ```bash
-claude mcp add-json 038f5ec7-8307-4fae-bca7-79b18a640095 '{"command":"npx","args":["-y","@fluxa-pay/fluxa-connect-mcp","--url","https://fluxa-servers-connection.up.railway.app/mcp/038f5ec7-8307-4fae-bca7-79b18a640095"],"env":{"AGENT_EMAIL":"your@email.com","AGENT_NAME":"Claude Code - agentwallet.fluxapay.xyz","CLIENT_INFO":"Claude Code on macOS"}}'
+claude mcp add-json 038f5ec7-8307-4fae-bca7-79b18a640095 '{"command":"npx","args":["-y","@fluxa-pay/fluxa-connect-mcp","--url","https://fluxa-servers-connection.up.railway.app/mcp/<config-id>"],"env":{"AGENT_EMAIL":"your@email.com","AGENT_NAME":"Claude Code - agentwallet.fluxapay.xyz","CLIENT_INFO":"Claude Code on macOS"}}'
 ```
 
 ## Required Environment Variables

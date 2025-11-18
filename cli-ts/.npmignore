@@ -1,0 +1,14 @@
+# Source TypeScript files
+*.ts
+!*.d.ts
+
+# Config files
+tsconfig.json
+
+# Development files
+*.log
+.DS_Store
+
+# Git
+.git/
+.gitignore

@@ -1,0 +1,40 @@
+{
+  "name": "@fluxa-pay/fluxa-connect-mcp",
+  "version": "0.1.2",
+  "type": "module",
+  "description": "MCP server with FluxA Wallet Service integration for X402 payments",
+  "bin": {
+    "fluxa-connect-mcp": "dist/stdio-server.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "fluxa",
+    "x402",
+    "payments",
+    "claude",
+    "wallet"
+  ],
+  "author": "FluxA",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FluxA-Agent-Payment/payment-proxy-servers.git",
+    "directory": "cli-ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.18.2",
+    "x402-fetch": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.0"
+  }
+}

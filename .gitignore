@@ -7,6 +7,7 @@ build/
 out/
 tmp/
 temp/
+*.tgz
 
 # TypeScript cache
 *.tsbuildinfo

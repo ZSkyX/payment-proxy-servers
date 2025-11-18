@@ -45,7 +45,7 @@ export default function MCPServerPage({ params }: { params: Promise<{ id: string
         })
 
         if (!response.ok) {
-          router.push("/mcp-servers")
+          router.push("/browse-servers")
           return
         }
 
@@ -53,7 +53,7 @@ export default function MCPServerPage({ params }: { params: Promise<{ id: string
         setServer(data)
       } catch (error) {
         console.error("Error fetching server config:", error)
-        router.push("/mcp-servers")
+        router.push("/browse-servers")
       } finally {
         setLoading(false)
       }

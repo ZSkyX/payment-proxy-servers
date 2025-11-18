@@ -45,6 +45,7 @@ interface ToolConfig {
   description: string;
   price: number;
   enabled: boolean;
+  input_schema?: any;
 }
 
 interface ServerConfig {
@@ -211,6 +212,18 @@ export function createDirectPaymentHandler(
   upstreamClient: Client,
   resourceUrl: string  // Full URL to this proxy endpoint including configId
 ): (req: Request) => Promise<Response> {
+  // Cache upstream tools to avoid repeated fetches
+  let upstreamToolsCache: any[] | null = null;
+
+  async function getUpstreamTools() {
+    if (!upstreamToolsCache) {
+      console.error('[DIRECT-HANDLER] Fetching upstream tools...');
+      const upstreamResponse = await upstreamClient.listTools();
+      upstreamToolsCache = upstreamResponse.tools;
+      console.error('[DIRECT-HANDLER] Cached upstream tools:', upstreamToolsCache.map(t => t.name));
+    }
+    return upstreamToolsCache;
+  }
 
   return async (req: Request): Promise<Response> => {
     try {
@@ -245,18 +258,41 @@ export function createDirectPaymentHandler(
         });
       }
       else if (jsonrpc.method === 'tools/list') {
-        // Build tools list with payment annotations
+        // Get upstream tools with their full schemas (for fallback)
+        const upstreamTools = await getUpstreamTools();
+
+        // Build tools list by merging stored/upstream schemas with payment annotations
         const tools = config.tools
           .filter(t => t.enabled)
           .map(toolConfig => {
+            let inputSchema;
+
+            // Prefer stored schema, fall back to upstream
+            if (toolConfig.input_schema) {
+              console.error(`[DIRECT-HANDLER] Using stored inputSchema for ${toolConfig.name}`);
+              inputSchema = toolConfig.input_schema;
+            } else {
+              // Find matching upstream tool
+              const upstreamTool = upstreamTools.find(ut => ut.name === toolConfig.name);
+
+              if (upstreamTool && upstreamTool.inputSchema) {
+                console.error(`[DIRECT-HANDLER] Using upstream inputSchema for ${toolConfig.name}`);
+                inputSchema = upstreamTool.inputSchema;
+              } else {
+                console.error(`[DIRECT-HANDLER] WARNING: No inputSchema found for ${toolConfig.name}, using empty schema`);
+                inputSchema = {
+                  type: "object",
+                  properties: {},
+                  additionalProperties: false,
+                };
+              }
+            }
+
+            // Build tool definition
             const tool: any = {
               name: toolConfig.name,
               description: toolConfig.description,
-              inputSchema: {
-                type: "object",
-                properties: {},
-                additionalProperties: false,
-              }
+              inputSchema: inputSchema
             };
 
             // Add payment annotations for paid tools

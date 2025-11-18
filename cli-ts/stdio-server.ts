@@ -29,7 +29,6 @@ async function main() {
 
   if (urlIndex === -1 || !args[urlIndex + 1]) {
     console.error('Error: --url argument is required');
-    console.error('Usage: npx tsx src/client-proxy/stdio-server.ts --url <mcp-server-url>');
     process.exit(1);
   }
 
@@ -134,6 +133,15 @@ let agentJwt: string;
   console.error('Available upstream tools:', upstreamTools.tools.map(t => t.name));
   console.error('Full tool metadata:', JSON.stringify(upstreamTools.tools, null, 2));
 
+  // Verify inputSchema is present
+  upstreamTools.tools.forEach(tool => {
+    if (tool.inputSchema) {
+      console.error(`Tool ${tool.name} has inputSchema:`, JSON.stringify(tool.inputSchema, null, 2));
+    } else {
+      console.error(`WARNING: Tool ${tool.name} is missing inputSchema!`);
+    }
+  });
+
   // Create MCP stdio server
   const server = new Server(
     {
@@ -149,7 +157,11 @@ let agentJwt: string;
 
   // Register handlers using the correct MCP SDK API
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    // Forward tool list from upstream
+    // Forward tool list from upstream, ensuring all fields are preserved
+    console.error('[STDIO-SERVER] ListTools called, returning tools:', upstreamTools.tools.map(t => ({
+      name: t.name,
+      hasInputSchema: !!t.inputSchema
+    })));
     return upstreamTools;
   });
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/shared/database";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +13,25 @@ export async function POST(request: NextRequest) {
         { error: "Invalid configuration - all fields are required including server description" },
         { status: 400 }
       );
+    }
+
+    // Fetch full tool schemas from upstream server
+    console.log('[SAVE] Fetching tools from upstream:', config.upstreamUrl);
+    let upstreamTools: any[] = [];
+    try {
+      const client = new Client(
+        { name: 'config-saver', version: '1.0.0' },
+        { capabilities: {} }
+      );
+      const transport = new StreamableHTTPClientTransport(new URL(config.upstreamUrl));
+      await client.connect(transport);
+      const toolsResponse = await client.listTools();
+      upstreamTools = toolsResponse.tools;
+      console.log('[SAVE] Fetched upstream tools:', upstreamTools.map(t => t.name));
+      await client.close();
+    } catch (error: any) {
+      console.error('[SAVE] Failed to fetch upstream tools:', error.message);
+      // Continue anyway - we'll save without inputSchema
     }
 
     // Get Privy user ID from authorization header
@@ -38,13 +59,27 @@ export async function POST(request: NextRequest) {
       wallet_address: config.yourWallet,
     });
 
+    // Merge inputSchema from upstream tools into config tools
+    const toolsWithSchema = config.tools.map((tool: any) => {
+      const upstreamTool = upstreamTools.find(ut => ut.name === tool.name);
+      return {
+        ...tool,
+        input_schema: upstreamTool?.inputSchema || null
+      };
+    });
+
+    console.log('[SAVE] Tools with schema:', toolsWithSchema.map((t: any) => ({
+      name: t.name,
+      hasSchema: !!t.input_schema
+    })));
+
     // Save configuration to database
     const configId = await db.createConfig(userId, {
       upstream_url: config.upstreamUrl,
       server_name: config.serverName || "Unknown Server",
       server_description: config.serverDescription,
       wallet_address: config.yourWallet,
-      tools: config.tools,
+      tools: toolsWithSchema,
     });
 
     // Generate multi-tenant proxy URL

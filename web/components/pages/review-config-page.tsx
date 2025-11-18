@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { usePrivy } from "@privy-io/react-auth"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowLeftIcon, Loader2 } from "lucide-react"
@@ -39,6 +40,7 @@ export function ReviewConfigPage({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const { user } = usePrivy()
+  const router = useRouter()
 
   const handleSave = async () => {
     setSaving(true)
@@ -78,8 +80,13 @@ export function ReviewConfigPage({
         throw new Error(data.error || "Failed to save configuration")
       }
 
-      // Configuration saved successfully - return to main page
-      onDone()
+      // Configuration saved successfully - navigate to the server detail page
+      if (data.configId) {
+        router.push(`/browse-servers/${data.configId}`)
+      } else {
+        // Fallback to main page if no configId returned
+        onDone()
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {

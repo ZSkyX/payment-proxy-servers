@@ -139,6 +139,7 @@ export const db = {
         description: string
         price: number
         enabled: boolean
+        input_schema?: any
       }>
     }
   ): Promise<string> {
@@ -167,6 +168,7 @@ export const db = {
         description: tool.description,
         price: tool.price,
         enabled: tool.enabled,
+        input_schema: tool.input_schema || null,
       }))
 
       const { error: toolsError } = await supabase

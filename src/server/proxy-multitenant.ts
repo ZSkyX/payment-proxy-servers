@@ -19,6 +19,7 @@ interface ToolConfig {
   description: string
   price: number
   enabled: boolean
+  input_schema?: any
 }
 
 interface ServerConfig {
@@ -76,7 +77,8 @@ async function loadConfig(configId: string): Promise<ServerConfig | null> {
         name: tool.name,
         description: tool.description || '',
         price: Number(tool.price),
-        enabled: tool.enabled
+        enabled: tool.enabled,
+        input_schema: tool.input_schema || undefined
       }))
     }
 

@@ -1,10 +1,10 @@
 {
   "name": "@fluxa-pay/fluxa-connect-mcp",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "MCP server with FluxA Wallet Service integration for X402 payments",
   "bin": {
-    "fluxa-connect-mcp": "./dist/stdio-server.js"
+    "fluxa-connect-mcp": "dist/stdio-server.js"
   },
   "files": [
     "dist",
@@ -22,7 +22,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fluxa-pay/fluxa-connect-mcp"
+    "url": "git+https://github.com/FluxA-Agent-Payment/payment-proxy-servers.git"
   },
   "scripts": {
     "start": "tsx src/server/proxy-multitenant.ts",

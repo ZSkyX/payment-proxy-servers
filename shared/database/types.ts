@@ -27,6 +27,7 @@ export interface UserMCPServerToolConfig {
   description: string | null
   price: number
   enabled: boolean
+  input_schema: any | null  // JSON schema for tool parameters
   created_at: string
   updated_at: string
 }

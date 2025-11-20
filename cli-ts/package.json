@@ -1,6 +1,6 @@
 {
   "name": "@fluxa-pay/fluxa-connect-mcp",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "MCP server with FluxA Wallet Service integration for X402 payments",
   "bin": {

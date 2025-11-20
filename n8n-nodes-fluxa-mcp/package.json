@@ -1,0 +1,69 @@
+{
+  "name": "n8n-nodes-fluxa-mcp",
+  "version": "0.1.0",
+  "description": "n8n node for calling MCP servers with automatic X402 payment handling via FluxA",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "mcp",
+    "fluxa",
+    "x402",
+    "payments",
+    "ai",
+    "claude"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/FluxA-Agent-Payment/payment-proxy-servers",
+  "author": {
+    "name": "FluxA",
+    "email": "support@fluxapay.xyz"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FluxA-Agent-Payment/payment-proxy-servers.git",
+    "directory": "n8n-nodes-fluxa-mcp"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && cp nodes/**/*.png dist/nodes/ 2>/dev/null || true && cp nodes/**/*.svg dist/nodes/ 2>/dev/null || true",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/FluxaApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/FluxaMcp/FluxaMcp.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.1",
+    "gulp": "^4.0.2",
+    "n8n-workflow": "^1.0.0",
+    "prettier": "^3.1.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.3.3",
+    "webpack": "^5.103.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.18.2",
+    "axios": "^1.6.0"
+  },
+  "overrides": {
+    "pkce-challenge": "3.0.0"
+  }
+}

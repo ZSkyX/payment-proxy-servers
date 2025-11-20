@@ -61,7 +61,7 @@ async function main() {
   console.error('Email:', agentEmail);
   console.error('Agent Name:', agentName);
 
-let agentJwt: string;
+  let agentJwt: string;
   let agentId: string;
 
   try {

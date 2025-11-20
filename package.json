@@ -1,6 +1,6 @@
 {
   "name": "@fluxa-pay/fluxa-connect-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "MCP server with FluxA Wallet Service integration for X402 payments",
   "bin": {
@@ -27,7 +27,7 @@
   "scripts": {
     "start": "tsx src/server/proxy-multitenant.ts",
     "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && cp cli-ts/README.md README.md",
     "mcp-server": "tsx src/mcp/server.ts",
     "proxy": "tsx src/server/proxy-multitenant.ts",
     "web:install": "cd web && npm install",

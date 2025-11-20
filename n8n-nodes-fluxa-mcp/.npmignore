@@ -1,0 +1,39 @@
+# Development files
+*.ts
+!dist/**/*.d.ts
+!dist/**/*.ts
+tsconfig.json
+.eslintrc.js
+.prettierrc
+
+# Source directories (only ship dist/)
+nodes/
+credentials/
+
+# Testing
+test/
+*.test.ts
+*.spec.ts
+
+# Build artifacts
+node_modules/
+.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+docs/
+examples/
+
+# Git
+.git/
+.gitignore

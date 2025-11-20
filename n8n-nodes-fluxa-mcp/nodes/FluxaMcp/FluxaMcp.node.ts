@@ -84,6 +84,14 @@ export class FluxaMcp implements INodeType {
 		inputs: [],
 		outputs: [NodeConnectionTypes.AiTool],
 		outputNames: ['Tools', 'Execution Logs'],
+		hints: [
+			{
+				message: 'Visit the <a href="https://fluxa-servers-connection.up.railway.app/auth-setup" target="_blank">FluxA Setup Page</a> to register and authorize your agent before using this node.',
+				type: 'info',
+				location: 'outputPane',
+				whenToDisplay: 'always'
+			},
+		],
 		codex: {
 			categories: ['AI'],
 			subcategories: {
@@ -125,17 +133,12 @@ export class FluxaMcp implements INodeType {
 				hint: 'When empty, all available tools from the MCP server will be exposed',
 			},
 			{
-				displayName: "First Time Setup Required if you have't registered your agent",
+				displayName: "First Time Setup Required",
 				name: 'setupNotice',
 				type: 'notice',
 				default: '',
-			},
-			{
-				displayName: 'Click `Execution Step` button to setup your agent',
-				name: 'registrationInfo',
-				type: 'notice',
-				default: '',
-				description: 'Your agent will be automatically registered with FluxA when you first use this node. After registration, you need to authorize the agent in FluxA Wallet to approve payments.',
+					
+
 			},
 			{
 				displayName: 'Options',
@@ -304,7 +307,7 @@ export class FluxaMcp implements INodeType {
 					}
 
 					if (result.isError) {
-						return `⚠️ ERROR:\n\n${textContent}`;
+						return `ERROR:\n\n${textContent}`;
 					}
 
 					return textContent;

@@ -5,9 +5,14 @@ import {
 	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
+	ISupplyDataFunctions,
+	SupplyData,
+	NodeConnectionTypes,
 } from 'n8n-workflow';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
 import { createPaymentClient } from './payment-client';
 
 // Type for agent registration response
@@ -31,11 +36,8 @@ async function registerAgent(
 	// Check cache
 	const cached = agentJwtCache.get(cacheKey);
 	if (cached && Date.now() - cached.timestamp < JWT_CACHE_TTL) {
-		console.log('[FluxaMcp] Using cached agent JWT');
 		return { jwt: cached.jwt, agentId: cached.agentId };
 	}
-
-	console.log('[FluxaMcp] Registering agent with FluxA...');
 
 	try {
 		const response = await fetch('https://agentid.fluxapay.xyz/register', {
@@ -61,13 +63,6 @@ async function registerAgent(
 			timestamp: Date.now(),
 		});
 
-		console.log('[FluxaMcp] Agent registered successfully:', data.agent_id);
-
-		// Construct authorization URL
-		const encodedName = encodeURIComponent(agentName);
-		const authUrl = `https://agentwallet.fluxapay.xyz/add-agent?agentId=${data.agent_id}&name=${encodedName}`;
-		console.log('[FluxaMcp] ⚠️  IMPORTANT: Authorize your agent at:', authUrl);
-
 		return { jwt: data.jwt, agentId: data.agent_id };
 	} catch (error: any) {
 		throw new Error(`Failed to register agent: ${error.message}`);
@@ -86,9 +81,22 @@ export class FluxaMcp implements INodeType {
 		defaults: {
 			name: 'FluxA MCP',
 		},
-		inputs: ['main'],
-		outputs: ['main'],
-		usableAsTool: true,
+		inputs: [],
+		outputs: [NodeConnectionTypes.AiTool],
+		outputNames: ['Tools', 'Execution Logs'],
+		codex: {
+			categories: ['AI'],
+			subcategories: {
+				AI: ['Tools'],
+			},
+			resources: {
+				primaryDocumentation: [
+					{
+						url: 'https://github.com/FluxA-Agent-Payment/payment-proxy-servers',
+					},
+				],
+			},
+		},
 		credentials: [
 			{
 				name: 'fluxaApi',
@@ -96,26 +104,6 @@ export class FluxaMcp implements INodeType {
 			},
 		],
 		properties: [
-			{
-				displayName: "First Time Setup Required if you have't registered your agent",
-				name: 'setupNotice',
-				type: 'notice',
-				default: '',
-			},
-			{
-				displayName: 'Click `Execution Step` button to setup your agent',
-				name: 'registrationInfo',
-				type: 'notice',
-				default: '',
-				description: 'Your agent will be automatically registered with FluxA when you first use this node. After registration, you need to authorize the agent in FluxA Wallet to approve payments.',
-			},
-			{
-				displayName: 'Authorize Agent',
-				name: 'authorizeInfo',
-				type: 'notice',
-				default: '',
-				description: 'After first use, you will receive an agent ID. Visit https://agentwallet.fluxapay.xyz to authorize your agent and manage payments. Your credentials (email and agent name) will be used for registration.',
-			},
 			{
 				displayName: 'MCP Server URL',
 				name: 'serverUrl',
@@ -137,12 +125,32 @@ export class FluxaMcp implements INodeType {
 				hint: 'When empty, all available tools from the MCP server will be exposed',
 			},
 			{
+				displayName: "First Time Setup Required if you have't registered your agent",
+				name: 'setupNotice',
+				type: 'notice',
+				default: '',
+			},
+			{
+				displayName: 'Click `Execution Step` button to setup your agent',
+				name: 'registrationInfo',
+				type: 'notice',
+				default: '',
+				description: 'Your agent will be automatically registered with FluxA when you first use this node. After registration, you need to authorize the agent in FluxA Wallet to approve payments.',
+			},
+			{
 				displayName: 'Options',
 				name: 'options',
 				type: 'collection',
 				placeholder: 'Add Option',
 				default: {},
 				options: [
+					{
+						displayName: 'Show Detailed Setup',
+						name: 'showDetailedSetup',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to fetch and show detailed setup information including pre-approval URLs and tool pricing when executing this node. Enable this when you need to set up pre-approvals.',
+					},
 					{
 						displayName: 'Override Network',
 						name: 'network',
@@ -195,7 +203,6 @@ export class FluxaMcp implements INodeType {
 						agentName,
 						network: defaultNetwork,
 						confirmationCallback: async () => true,
-						logger: (msg) => console.log(`[FluxaMcp] ${msg}`),
 					});
 
 					// List tools
@@ -208,52 +215,154 @@ export class FluxaMcp implements INodeType {
 						description: tool.description || '',
 					}));
 				} catch (error: any) {
-					console.error('[FluxaMcp] Error loading tools:', error);
 					return [];
 				}
 			},
 		},
 	};
 
+	async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
+		// Get credentials
+		const credentials = await this.getCredentials('fluxaApi');
+		const email = credentials.email as string;
+		const agentName = credentials.agentName as string;
+		const walletServiceUrl = credentials.walletServiceUrl as string;
+		const defaultNetwork = credentials.defaultNetwork as string;
+
+		// Get parameters
+		const serverUrl = this.getNodeParameter('serverUrl', itemIndex) as string;
+		const toolsToExpose = this.getNodeParameter('toolsToExpose', itemIndex, []) as string[];
+		const options = this.getNodeParameter('options', itemIndex, {}) as any;
+		const network = options.network || defaultNetwork || 'base';
+
+		// Register agent and get JWT
+		const { jwt: agentJwt, agentId } = await registerAgent(email, agentName);
+
+		// Create MCP client
+		const client = new Client(
+			{ name: 'n8n-fluxa-mcp', version: '1.0.0' },
+			{ capabilities: {} }
+		);
+
+		const transport = new StreamableHTTPClientTransport(new URL(serverUrl));
+		await client.connect(transport);
+
+		// Wrap with payment client
+		const paymentClient = createPaymentClient(client, {
+			fluxaWalletServiceUrl: walletServiceUrl,
+			agentJwt,
+			agentName,
+			network,
+		});
+
+		// List available tools
+		const result = await paymentClient.listTools();
+
+		// Filter tools based on user selection
+		const exposedTools = toolsToExpose.length > 0
+			? result.tools.filter((tool: any) => toolsToExpose.includes(tool.name))
+			: result.tools;
+
+		// Convert MCP tools to LangChain DynamicStructuredTool
+		const tools = exposedTools.map((tool: any) => {
+			// Use generic schema that accepts any arguments
+			const schema = z.object({}).passthrough();
+
+			return new DynamicStructuredTool({
+				name: tool.name,
+				description: tool.description || '',
+				schema: schema as any,
+				func: async (input: any) => {
+					const result = await paymentClient.callTool({
+						name: tool.name,
+						arguments: input,
+					});
+
+					// Extract text content (works for both success and error)
+					const textContent = (result.content as any[])
+						?.filter((c: any) => c.type === 'text')
+						.map((c: any) => c.text)
+						.join('\n') || '';
+
+					// Add output data to make it visible in n8n UI
+					const outputData: INodeExecutionData = {
+						json: {
+							tool: tool.name,
+							arguments: input,
+							result: textContent,
+							fullResult: result,
+							isError: result.isError,
+							settlement: result._meta?.['x402/settlement'],
+							timestamp: new Date().toISOString(),
+						},
+					};
+
+					try {
+						await this.addOutputData(NodeConnectionTypes.AiTool, itemIndex, outputData);
+					} catch (error) {
+						// Silently fail if output data cannot be added
+					}
+
+					if (result.isError) {
+						return `⚠️ ERROR:\n\n${textContent}`;
+					}
+
+					return textContent;
+				},
+			});
+		});
+
+		return {
+			response: tools,
+		};
+	}
+
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
-		for (let i = 0; i < items.length; i++) {
-			try {
-				// Get credentials
-				const credentials = await this.getCredentials('fluxaApi', i);
-				const email = credentials.email as string;
-				const agentName = credentials.agentName as string;
-				const walletServiceUrl = credentials.walletServiceUrl as string;
-				const defaultNetwork = credentials.defaultNetwork as string;
+		try {
+			// Get credentials
+			const credentials = await this.getCredentials('fluxaApi');
+			const email = credentials.email as string;
+			const agentName = credentials.agentName as string;
+			const walletServiceUrl = credentials.walletServiceUrl as string;
+			const defaultNetwork = credentials.defaultNetwork as string;
 
-				// Get parameters
-				const serverUrl = this.getNodeParameter('serverUrl', i) as string;
-				const toolsToExpose = this.getNodeParameter('toolsToExpose', i, []) as string[];
-				const options = this.getNodeParameter('options', i, {}) as any;
-				const network = options.network || defaultNetwork || 'base';
+			// Get parameters
+			const serverUrl = this.getNodeParameter('serverUrl', 0) as string;
+			const toolsToExpose = this.getNodeParameter('toolsToExpose', 0, []) as string[];
+			const options = this.getNodeParameter('options', 0, {}) as any;
+			const network = options.network || defaultNetwork || 'base';
 
-				// Register agent and get JWT (with caching)
-				const { jwt: agentJwt, agentId } = await registerAgent(email, agentName);
+			// Get toggle option
+			const showDetailedSetup = options.showDetailedSetup || false;
 
-				// Create MCP client
-				const client = new Client(
-					{ name: 'n8n-fluxa-mcp', version: '1.0.0' },
-					{ capabilities: {} }
-				);
+			// Register agent and get JWT (with caching)
+			const { jwt: agentJwt, agentId } = await registerAgent(email, agentName);
 
-				const transport = new StreamableHTTPClientTransport(new URL(serverUrl));
-				await client.connect(transport);
+			// Create MCP client (used by both modes)
+			const client = new Client(
+				{ name: 'n8n-fluxa-mcp', version: '1.0.0' },
+				{ capabilities: {} }
+			);
 
-				// Wrap with payment client
-				const paymentClient = createPaymentClient(client, {
-					fluxaWalletServiceUrl: walletServiceUrl,
-					agentJwt,
-					agentName,
-					network,
-					logger: (msg) => console.log(`[FluxaMcp] ${msg}`),
-				});
+			const transport = new StreamableHTTPClientTransport(new URL(serverUrl));
+			await client.connect(transport);
+
+			// Wrap with payment client
+			const paymentClient = createPaymentClient(client, {
+				fluxaWalletServiceUrl: walletServiceUrl,
+				agentJwt,
+				agentName,
+				network,
+			});
+
+			// If detailed setup is requested, fetch tools and show detailed info
+			if (showDetailedSetup) {
+				// Construct URLs
+				const encodedName = encodeURIComponent(agentName);
+				const authUrl = `https://agentwallet.fluxapay.xyz/add-agent?agentId=${agentId}&name=${encodedName}`;
+				const walletUrl = `https://agentwallet.fluxapay.xyz`;
 
 				// List available tools from the MCP server
 				const result = await paymentClient.listTools();
@@ -263,10 +372,35 @@ export class FluxaMcp implements INodeType {
 					? result.tools.filter((tool: any) => toolsToExpose.includes(tool.name))
 					: result.tools;
 
-				// Construct URLs for the user
-				const encodedName = encodeURIComponent(agentName);
-				const authUrl = `https://agentwallet.fluxapay.xyz/add-agent?agentId=${agentId}&name=${encodedName}`;
-				const walletUrl = `https://agentwallet.fluxapay.xyz`;
+				// Calculate pre-approval parameters from tool annotations
+				let maxAmount = 0;
+				let payToAddress = '';
+
+				for (const tool of exposedTools) {
+					const annotations = tool.annotations as any;
+					if (annotations?.paymentNetworks) {
+						// Find the payment network matching the selected network
+						const paymentNetwork = annotations.paymentNetworks.find(
+							(pn: any) => pn.network === network
+						);
+
+						if (paymentNetwork) {
+							// Track the maximum amount required across all tools
+							const toolAmount = parseInt(paymentNetwork.maxAmountRequired || '0');
+							if (toolAmount > maxAmount) {
+								maxAmount = toolAmount;
+								payToAddress = paymentNetwork.recipient;
+							}
+						}
+					}
+				}
+
+				// Construct pre-approval URL if we have payment info
+				const encodedResourceUrl = encodeURIComponent(serverUrl);
+				let preApprovalUrl = '';
+				if (maxAmount > 0 && payToAddress) {
+					preApprovalUrl = `https://agentwallet.fluxapay.xyz/authorize-payment?agentId=${agentId}&resourceUrl=${encodedResourceUrl}&amount=${maxAmount}&payTo=${payToAddress}`;
+				}
 
 				// Return the list of tools that will be exposed
 				returnData.push({
@@ -277,35 +411,29 @@ export class FluxaMcp implements INodeType {
 								url: authUrl,
 								instructions: 'Open this URL to authorize your agent in FluxA Wallet (first time only)',
 							},
-							step2_managePayments: {
+							step2_preApprovePayments: preApprovalUrl ? {
+								url: preApprovalUrl,
+								instructions: `Pre-approve payments up to ${(maxAmount / 1_000_000).toFixed(6)} USDC for all tools in this configuration`,
+								maxAmount: maxAmount,
+								payTo: payToAddress,
+								network: network,
+							} : undefined,
+							step3_managePayments: {
 								url: walletUrl,
-								instructions: 'Open this URL to view and approve pending payments',
+								instructions: 'Open this URL to view and manage all payments',
 							},
-						},
-						serverUrl,
-						toolsConfigured: toolsToExpose.length > 0 ? toolsToExpose : 'all',
-						availableTools: exposedTools.map((tool: any) => ({
-							name: tool.name,
-							description: tool.description,
-						})),
-						_meta: {
-							serverUrl,
-							agentId,
-							network,
-							totalTools: exposedTools.length,
 						},
 					},
 				});
-			} catch (error: any) {
-				if (this.continueOnFail()) {
-					returnData.push({
-						json: {
-							error: error.message,
-						},
-						pairedItem: { item: i },
-					});
-					continue;
-				}
+			}
+		} catch (error: any) {
+			if (this.continueOnFail()) {
+				returnData.push({
+					json: {
+						error: error.message,
+					},
+				});
+			} else {
 				throw error;
 			}
 		}

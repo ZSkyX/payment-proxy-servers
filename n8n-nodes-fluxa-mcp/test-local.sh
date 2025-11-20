@@ -86,7 +86,6 @@ echo "   https://fluxa-servers-connection.up.railway.app/mcp/your-config-id"
 echo ""
 
 # Ask if user wants to start n8n now
-read -p "Start n8n now? [y/N]: " start_n8n
 echo ""
 echo "🚀 Starting n8n..."
 echo "   Press Ctrl+C to stop"

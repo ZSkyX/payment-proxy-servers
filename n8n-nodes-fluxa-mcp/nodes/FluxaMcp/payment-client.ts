@@ -22,7 +22,6 @@ interface PaymentOption {
 interface PaymentClientConfig {
   fluxaWalletServiceUrl: string;
   agentJwt: string;
-  agentName: string;
   network: string;
   confirmationCallback?: (options: PaymentOption[]) => Promise<boolean>;
   logger?: (message: string) => void;
@@ -38,7 +37,7 @@ export function createPaymentClient(
   client: Client,
   config: PaymentClientConfig
 ) {
-  const { fluxaWalletServiceUrl, agentJwt, agentName, network, confirmationCallback, logger } = config;
+  const { fluxaWalletServiceUrl, agentJwt, network, confirmationCallback, logger } = config;
 
   const log = logger || (() => {});
 
@@ -134,25 +133,11 @@ export function createPaymentClient(
         if (error.response) {
           const errorData = error.response.data;
 
-          // If there's a payment_model_context with agent_not_found, build authorization link
+          // If there's a payment_model_context with agent_not_found
           if (errorData.payment_model_context && errorData.code === 'agent_not_found') {
-            const instructions = errorData.payment_model_context.instructions || '';
-
-            // Extract agent_id from instructions
-            const agentIdMatch = instructions.match(/ID:\s*([a-f0-9-]+)/i);
-            const agentId = agentIdMatch ? agentIdMatch[1] : '';
-
-            let message = `Payment failed: ${errorData.message || error.message}\n\n`;
-
-            if (agentId) {
-              const encodedName = encodeURIComponent(agentName);
-              const authUrl = `https://agentwallet.fluxapay.xyz/add-agent?agentId=${agentId}&name=${encodedName}`;
-              message += `Your agent needs to be authorized in FluxA wallet.\n\n`;
-              message += `Please open this link to authorize:\n${authUrl}\n\n`;
-              message += `After authorization, please retry this request.`;
-            } else {
-              message += instructions;
-            }
+            const message = `Payment failed: ${errorData.message || error.message}\n\n` +
+              `Please ensure you have completed the setup process at:\n` +
+              `https://fluxa-serve.up.railway.app/auth-setup`;
 
             return {
               isError: true,

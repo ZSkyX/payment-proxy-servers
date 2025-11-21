@@ -1,5 +1,4 @@
 import {
-	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
 } from 'n8n-workflow';
@@ -9,30 +8,22 @@ export class FluxaApi implements ICredentialType {
 	displayName = 'FluxA API';
 	properties: INodeProperties[] = [
 		{
-			displayName: 'Email',
-			name: 'email',
+			displayName: 'Visit the <a href="https://fluxa-serve.up.railway.app/auth-setup" target="_blank">FluxA Setup Page</a> to register and authorize your agent before using this credential.',
+			name: 'setupNotice',
+			type: 'notice',
+			default: '',
+		},
+		{
+			displayName: 'Agent JWT Token',
+			name: 'agentJwt',
 			type: 'string',
+			typeOptions: {
+				password: true,
+			},
 			default: '',
 			required: true,
-			placeholder: 'your@email.com',
-			description: 'Your email address for FluxA agent registration',
-		},
-		{
-			displayName: 'Agent Name',
-			name: 'agentName',
-			type: 'string',
-			default: 'n8n - My Instance',
-			required: true,
-			placeholder: 'n8n - Production',
-			description: 'A unique name for this n8n instance (e.g., "n8n - Production", "n8n - Development")',
-		},
-		{
-			displayName: 'FluxA Wallet Service URL',
-			name: 'walletServiceUrl',
-			type: 'string',
-			default: 'https://walletapi.fluxapay.xyz',
-			required: true,
-			description: 'FluxA Wallet Service endpoint URL',
+			placeholder: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+			description: 'Your FluxA agent JWT token from the setup page',
 		},
 		{
 			displayName: 'Payment Network',
@@ -68,13 +59,4 @@ export class FluxaApi implements ICredentialType {
 			description: 'Default blockchain network for payments',
 		},
 	];
-
-	// Test the credential
-	test: ICredentialTestRequest = {
-		request: {
-			baseURL: '={{$credentials.walletServiceUrl}}',
-			url: '/health',
-			method: 'GET',
-		},
-	};
 }

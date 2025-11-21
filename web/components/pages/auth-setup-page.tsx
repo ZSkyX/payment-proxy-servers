@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { usePrivy } from "@privy-io/react-auth"
-import { Loader2, CheckCircle2, ExternalLink, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle2, ExternalLink, AlertCircle, Copy, Check } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AuthGate } from "@/components/providers/auth-gate"
 import { Header } from "@/components/layout/header"
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 
 interface SetupStep {
   id: string
@@ -37,6 +35,9 @@ export function AuthSetupPage() {
   const [error, setError] = useState<string | null>(null)
   const [setupSteps, setSetupSteps] = useState<SetupStep[]>([])
   const [currentStep, setCurrentStep] = useState(0)
+  const [agentJwt, setAgentJwt] = useState<string>("")
+  const [agentId, setAgentId] = useState<string>("")
+  const [copiedJwt, setCopiedJwt] = useState(false)
 
   const handleSetup = async () => {
     if (!mcpServerUrl || !email || !agentName) {
@@ -48,67 +49,31 @@ export function AuthSetupPage() {
     setError(null)
 
     try {
-      // Step 1: Register agent with FluxA
-      const registerResponse = await fetch('https://agentid.fluxapay.xyz/register', {
+      // Call the API route to set up the agent
+      const response = await fetch('/api/setup-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          mcpServerUrl,
           email,
-          agent_name: agentName,
-          client_info: 'n8n FluxA MCP Node',
+          agentName,
+          network,
         }),
       })
 
-      const registerData = await registerResponse.json()
+      const data = await response.json()
 
-      if (!registerResponse.ok) {
-        throw new Error(registerData.message || 'Failed to register agent')
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to set up agent')
       }
 
-      const agentId = registerData.agent_id
-      const agentJwt = registerData.jwt
+      const { addAgentUrl, authorizePaymentUrl, maxAmount, agentJwt: jwt, agentId: id } = data
 
-      // Step 2: Connect to MCP server and get tools
-      const client = new Client(
-        { name: 'n8n-fluxa-mcp-setup', version: '1.0.0' },
-        { capabilities: {} }
-      )
+      // Store JWT and agent ID
+      setAgentJwt(jwt)
+      setAgentId(id)
 
-      const transport = new StreamableHTTPClientTransport(new URL(mcpServerUrl))
-      await client.connect(transport)
-
-      // List tools to get payment information
-      const toolsResult = await client.listTools()
-
-      // Calculate max amount and payTo address
-      let maxAmount = 0
-      let payToAddress = ''
-
-      for (const tool of toolsResult.tools) {
-        const annotations = (tool as any).annotations
-        if (annotations?.paymentNetworks) {
-          const paymentNetwork = annotations.paymentNetworks.find(
-            (pn: any) => pn.network === network
-          )
-
-          if (paymentNetwork) {
-            const toolAmount = parseInt(paymentNetwork.maxAmountRequired || '0')
-            if (toolAmount > maxAmount) {
-              maxAmount = toolAmount
-              payToAddress = paymentNetwork.recipient
-            }
-          }
-        }
-      }
-
-      await client.close()
-
-      // Step 3: Build setup steps with URLs
-      const encodedName = encodeURIComponent(agentName)
-      const encodedResourceUrl = encodeURIComponent(mcpServerUrl)
-
-      const addAgentUrl = `https://agentwallet.fluxapay.xyz/add-agent?agentId=${agentId}&name=${encodedName}`
-
+      // Build setup steps with URLs from API response
       const steps: SetupStep[] = [
         {
           id: 'authorize-agent',
@@ -120,9 +85,7 @@ export function AuthSetupPage() {
       ]
 
       // Only add payment authorization if we have payment info
-      if (maxAmount > 0 && payToAddress) {
-        const authorizePaymentUrl = `https://agentwallet.fluxapay.xyz/authorize-payment?agentId=${agentId}&resourceUrl=${encodedResourceUrl}&amount=${maxAmount}&payTo=${payToAddress}`
-
+      if (authorizePaymentUrl) {
         steps.push({
           id: 'authorize-payment',
           title: 'Pre-approve Payments',
@@ -131,14 +94,6 @@ export function AuthSetupPage() {
           url: authorizePaymentUrl,
         })
       }
-
-      steps.push({
-        id: 'manage-wallet',
-        title: 'Manage Wallet',
-        description: 'View and manage all your payments',
-        status: 'pending',
-        url: 'https://agentwallet.fluxapay.xyz',
-      })
 
       setSetupSteps(steps)
       setCurrentStep(0)
@@ -173,6 +128,19 @@ export function AuthSetupPage() {
     setSetupSteps([])
     setCurrentStep(0)
     setError(null)
+    setAgentJwt("")
+    setAgentId("")
+    setCopiedJwt(false)
+  }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedJwt(true)
+      setTimeout(() => setCopiedJwt(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
 
   return (
@@ -290,7 +258,7 @@ export function AuthSetupPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="border border-border shadow-lg">
               <CardHeader className="bg-muted/50 border-b border-border">
                 <CardTitle className="text-2xl text-foreground">Setup Steps</CardTitle>
@@ -311,24 +279,22 @@ export function AuthSetupPage() {
                           : 'bg-muted/30 border-border'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            {step.status === 'completed' && (
-                              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                            )}
-                            <h3 className="font-semibold text-foreground">
-                              {idx + 1}. {step.title}
-                            </h3>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{step.description}</p>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-2">
+                          {step.status === 'completed' && (
+                            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          )}
+                          <h3 className="font-semibold text-foreground">
+                            {idx + 1}. {step.title}
+                          </h3>
                         </div>
+                        <p className="text-sm text-muted-foreground">{step.description}</p>
                         {step.status !== 'pending' && (
                           <Button
                             onClick={() => handleOpenStep(idx)}
                             disabled={step.status === 'completed'}
                             variant={step.status === 'current' ? 'default' : 'outline'}
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 w-full"
                           >
                             {step.status === 'completed' ? 'Completed' : 'Open'}
                             {step.status === 'current' && <ExternalLink className="w-4 h-4" />}
@@ -351,22 +317,86 @@ export function AuthSetupPage() {
               </CardContent>
             </Card>
 
-            <Card className="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-foreground">
-                      Important: Complete all steps in order
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Each step will open in a new tab. Complete the authorization in FluxA Wallet
-                      before moving to the next step.
-                    </p>
+            {setupSteps.length > 0 && (
+              <Card className="border border-border shadow-lg">
+                <CardHeader className="bg-muted/50 border-b border-border">
+                  <CardTitle className="text-2xl text-foreground">Registration Information</CardTitle>
+                  <CardDescription>
+                    Your agent details for n8n configuration
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Email</Label>
+                      <p className="text-base text-foreground font-mono bg-muted/50 p-3 rounded-md break-all">
+                        {email}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Agent Name</Label>
+                      <p className="text-base text-foreground font-mono bg-muted/50 p-3 rounded-md break-all">
+                        {agentName}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">MCP Server URL</Label>
+                      <p className="text-base text-foreground font-mono bg-muted/50 p-3 rounded-md break-all">
+                        {mcpServerUrl}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-muted-foreground">Payment Network</Label>
+                      <p className="text-base text-foreground font-mono bg-muted/50 p-3 rounded-md break-all">
+                        {network}
+                      </p>
+                    </div>
+
+                    <div className="border-t border-border pt-4 mt-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium text-foreground">Agent JWT Token</Label>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(agentJwt)}
+                            className="flex items-center gap-2"
+                          >
+                            {copiedJwt ? (
+                              <>
+                                <Check className="w-4 h-4" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-4 h-4" />
+                                Copy
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-sm text-foreground font-mono bg-muted/50 p-3 rounded-md break-all border border-border">
+                          {agentJwt}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Use this JWT token in your n8n FluxA API credentials
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 mt-4">
+                        <Label className="text-sm font-medium text-muted-foreground">Agent ID</Label>
+                        <p className="text-sm text-foreground font-mono bg-muted/50 p-3 rounded-md break-all">
+                          {agentId}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
           </div>

@@ -1,18 +1,3 @@
 {
-  "mcpServers": {
-    "7bd33c00-3b5b-4e97-9058-8b26c3cedc7d": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@fluxa-pay/fluxa-connect-mcp",
-        "--url",
-        "http://localhost:3003/mcp/7bd33c00-3b5b-4e97-9058-8b26c3cedc7d"
-      ],
-      "env": {
-        "AGENT_EMAIL": "skyzhang98@hotmail.com",
-        "AGENT_NAME": "Claude Code - agentwallet.fluxapay.xyz",
-        "CLIENT_INFO": "Claude Code on macOS"
-      }
-    }
-  }
+  "mcpServers": {}
 }

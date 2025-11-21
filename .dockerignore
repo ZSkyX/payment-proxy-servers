@@ -1,0 +1,32 @@
+# Dependencies
+node_modules
+web/node_modules
+cli-ts/node_modules
+n8n-nodes-fluxa-mcp/node_modules
+
+# Build outputs
+.next
+dist
+*.tgz
+
+# Environment and local files
+.env
+.env.local
+.DS_Store
+
+# Git
+.git
+.gitignore
+
+# Logs
+logs
+*.log
+
+# Cache directories
+.cache
+.vscode
+.claude
+
+# Temporary files
+*.tmp
+*.temp

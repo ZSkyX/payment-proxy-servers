@@ -1,8 +1,20 @@
 # Railway configuration for proxy server
-# Skip build step since tsx runs TypeScript directly
+# Optimized for faster builds
 
 [phases.install]
-cmds = ['npm install']
+cmds = [
+  'npm ci --ignore-scripts',
+  'cd web && npm ci --omit=dev',
+  'cd web && npm run build'
+]
 
 [phases.start]
 cmd = 'npm start'
+
+[start]
+cmd = 'npm start'
+
+# Cache configuration to speed up builds
+[variables]
+NODE_ENV = 'production'
+NPM_CONFIG_LOGLEVEL = 'error'
